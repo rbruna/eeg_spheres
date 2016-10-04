@@ -1,4 +1,4 @@
-function [leadfield, vol] = my_leadfield_eegspheres ( dips, sens, vol )
+function leadfield = my_leadfield_eegspheres ( dips, sens, headmodel )
 % EEG_LEADFIELD4 electric leadfield for a dipole in 4 concentric spheres
 % 
 % [lf] = eeg_leadfield4(R, elc, vol)
@@ -19,19 +19,19 @@ function [leadfield, vol] = my_leadfield_eegspheres ( dips, sens, vol )
 % Copyright (C) 2016, Ricardo Bruna
 
 % Sanitizes the volume conductor.
-vol         = fix_volume ( vol );
+headmodel   = fix_volume ( headmodel );
 
 % Centers the sphere in the origin.
-dips        = bsxfun ( @minus, dips,  vol.o );
-sens        = bsxfun ( @minus, sens,  vol.o );
-vol.o       = bsxfun ( @minus, vol.o, vol.o );
+dips        = bsxfun ( @minus, dips,  headmodel.o );
+sens        = bsxfun ( @minus, sens,  headmodel.o );
+headmodel.o = bsxfun ( @minus, headmodel.o, headmodel.o );
 
 % Gets the radius and the conductivity of the outter sphere.
-radius      = vol.r    (4);
-cond        = vol.cond (4);
+radius      = headmodel.r    (4);
+cond        = headmodel.cond (4);
 
 % Gets the terms of the expansion.
-terms       = vol.t;
+terms       = headmodel.t;
 
 
 % Extracts the number of terms of the expansion.
@@ -146,25 +146,31 @@ leadfield = leadfield ( :, : );
 
 
 
-function vol = fix_volume ( vol )
+function volume = fix_volume ( volume )
 
 % Defines the center of the spheres, if needed.
-if ~isfield ( vol, 'o' )
-    vol.o       = zeros ( 1, 3 );
+if ~isfield ( volume, 'o' )
+    volume.o    = zeros ( 1, 3 );
 end
 
 % Sorts the spheres from the smallest to the largest.
-[ ~, indx ] = sort ( vol.r );
-vol.cond    = vol.cond ( indx );
-vol.r       = vol.r    ( indx );
+[ ~, indx ] = sort ( volume.r );
+volume.cond = volume.cond ( indx );
+volume.r    = volume.r    ( indx );
+
+% If only one spher creates the othe three.
+if numel ( volume.r ) == 1
+    volume.cond = volume.cond ( [ 1 1 1 1 ] );
+    volume.r    = volume.r    ( [ 1 1 1 1 ] );
+end
 
 % If only three spheres creates the fourth one.
-if numel ( vol.r ) == 3
-    vol.cond    = vol.cond ( [ 1 2 3 3 ] );
-    vol.r       = vol.r    ( [ 1 2 3 3 ] );
+if numel ( volume.r ) == 3
+    volume.cond = volume.cond ( [ 1 2 3 3 ] );
+    volume.r    = volume.r    ( [ 1 2 3 3 ] );
 end
 
 % Computes the constant factors for the sphere, if needed.
-if ~isfield ( vol, 't' )
-    vol.t       = ft_eeg_leadfield4_prepare ( vol );
+if ~isfield ( volume, 't' )
+    volume.t    = ft_eeg_leadfield4_prepare ( volume );
 end
