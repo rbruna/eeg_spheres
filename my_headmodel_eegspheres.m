@@ -1,7 +1,9 @@
 function headmodel = my_headmodel_eegspheres ( mesh, sens, varargin )
 
+% Creates a concentric spheres volume conductor for EEG.
+%
 % Use as
-%   headmodel = ft_headmodel_localspheres(mesh, grad, ...)
+%   headmodel = my_headmodel_eegspheres ( mesh, grad, ... )
 %
 % Optional arguments should be specified in key-value pairs and can include
 %   radius    = number, radius of sphere within which headshape points will

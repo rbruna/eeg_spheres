@@ -1,15 +1,18 @@
 function leadfield = my_leadfield_eegspheres ( dips, sens, headmodel )
-% EEG_LEADFIELD4 electric leadfield for a dipole in 4 concentric spheres
+
+% Leadfield for a EEG concentric spheres model.
 % 
-% [lf] = eeg_leadfield4(R, elc, vol)
+% Use as:
+%   leadfield = my_leadfield_eegspheres ( dippos, senspos, volume )
 %
-% with input arguments
-%   R          position of the dipole
-%   elc        position of the electrodes
-% and vol being a structure with the elements
-%   vol.r      radius of the 4 spheres 
-%   vol.cond   conductivity of the 4 spheres
-%   vol.t      constant factors for series expansion (optional)
+% Where:
+%   dippos   Position of the dipole.
+%   senspos  Position of the electrodes.
+%   volume   FieldTrip concentric spheres definition:
+%       volume.o     Center of the spheres (optional if origin).
+%       volume.r     Radius of the spheres.
+%       volume.cond  Conductivity of each sphere.
+%       volume.t     Series expansion for Gamma (optional).
 %
 % This function requires FieldTrip 20160222 or newer to work properly.
 
@@ -172,5 +175,5 @@ end
 
 % Computes the constant factors for the sphere, if needed.
 if ~isfield ( volume, 't' )
-    volume.t    = ft_eeg_leadfield4_prepare ( volume );
+    volume.t    = my_leadfield_eeggamma ( volume );
 end
