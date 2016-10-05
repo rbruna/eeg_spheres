@@ -3,16 +3,16 @@ function leadfield = my_leadfield_eegspheres ( dips, sens, headmodel )
 % Leadfield for a EEG concentric spheres model.
 % 
 % Use as:
-%   leadfield = my_leadfield_eegspheres ( dippos, senspos, volume )
+%   leadfield = my_leadfield_eegspheres ( dippos, senspos, headmodel )
 %
 % Where:
-%   dippos   Position of the dipole.
-%   senspos  Position of the electrodes.
-%   volume   FieldTrip concentric spheres definition:
-%       volume.o     Center of the spheres (optional if origin).
-%       volume.r     Radius of the spheres.
-%       volume.cond  Conductivity of each sphere.
-%       volume.t     Series expansion for Gamma (optional).
+%   dippos      Position of the dipole.
+%   senspos     Position of the electrodes.
+%   headmodel   FieldTrip concentric spheres definition:
+%       headmodel.o     Center of the spheres (optional if origin).
+%       headmodel.r     Radius of the spheres.
+%       headmodel.cond  Conductivity of each sphere.
+%       headmodel.t     Series expansion for Gamma (optional).
 %
 % This function requires FieldTrip 20160222 or newer to work properly.
 
@@ -149,31 +149,31 @@ leadfield = leadfield ( :, : );
 
 
 
-function volume = fix_volume ( volume )
+function headmodel = fix_volume ( headmodel )
 
 % Defines the center of the spheres, if needed.
-if ~isfield ( volume, 'o' )
-    volume.o    = zeros ( 1, 3 );
+if ~isfield ( headmodel, 'o' )
+    headmodel.o    = zeros ( 1, 3 );
 end
 
 % Sorts the spheres from the smallest to the largest.
-[ ~, indx ] = sort ( volume.r );
-volume.cond = volume.cond ( indx );
-volume.r    = volume.r    ( indx );
+[ ~, indx ]    = sort ( headmodel.r );
+headmodel.cond = headmodel.cond ( indx );
+headmodel.r    = headmodel.r    ( indx );
 
 % If only one spher creates the othe three.
-if numel ( volume.r ) == 1
-    volume.cond = volume.cond ( [ 1 1 1 1 ] );
-    volume.r    = volume.r    ( [ 1 1 1 1 ] );
+if numel ( headmodel.r ) == 1
+    headmodel.cond = headmodel.cond ( [ 1 1 1 1 ] );
+    headmodel.r    = headmodel.r    ( [ 1 1 1 1 ] );
 end
 
 % If only three spheres creates the fourth one.
-if numel ( volume.r ) == 3
-    volume.cond = volume.cond ( [ 1 2 3 3 ] );
-    volume.r    = volume.r    ( [ 1 2 3 3 ] );
+if numel ( headmodel.r ) == 3
+    headmodel.cond = headmodel.cond ( [ 1 2 3 3 ] );
+    headmodel.r    = headmodel.r    ( [ 1 2 3 3 ] );
 end
 
 % Computes the constant factors for the sphere, if needed.
-if ~isfield ( volume, 't' )
-    volume.t    = my_leadfield_eeggamma ( volume );
+if ~isfield ( headmodel, 't' )
+    headmodel.t    = my_leadfield_eeggamma ( headmodel );
 end

@@ -1,18 +1,18 @@
-function gamma = my_leadfield_eeggamma ( volume, order, cuffin )
+function gamma = my_leadfield_eeggamma ( headmodel, order, cuffin )
 
 % Returns the Gamma series expansion for EEG leadfields.
 %
 % Use as:
-%   Gamma = my_leadfield_eeggamma ( volume, order );
+%   Gamma = my_leadfield_eeggamma ( headmodel, order );
 %
 % where:
-%   volume   FieldTrip concentric spheres definition:
-%       volume.r     Radius of the spheres.
-%       volume.cond  Conductivity of each sphere.
-%   order    Number of terms for the series (default 60). 
+%   headmodel   FieldTrip concentric spheres definition:
+%       headmodel.r     Radius of the spheres.
+%       headmodel.cond  Conductivity of each sphere.
+%   order       Number of terms for the series (default 60). 
 %
 % The series expansion is valid for a sphere centered at origin.
-%
+
 % This implementation is adapted from:
 %   Lutkenhoner, Habilschrift 1992. Möglichkeiten und Grenzen der neuromagnetischen Quellenanalyse.
 % which again is taken from:
@@ -20,6 +20,8 @@ function gamma = my_leadfield_eeggamma ( volume, order, cuffin )
 
 % Based on FieldTrip 20160222 functions:
 % * eeg_leadfield4_prepare by Robert Oostenveld
+
+% Copyright (C) 2016, Ricardo Bruna
 
 % Initializes the empty inputs.
 if nargin < 3
@@ -33,23 +35,23 @@ end
 orders      = 1: order;
 
 % sort the spheres from the smallest to the largest
-[ ~, idx ]  = sort ( volume.r );
-volume.t    = volume.r    ( idx );
-volume.cond = volume.cond ( idx );
+[ ~, idx ]  = sort ( headmodel.r );
+headmodel.t    = headmodel.r    ( idx );
+headmodel.cond = headmodel.cond ( idx );
 
 % Creates constants for the conductivity ratios.
 % Cuffin & Cohen 1979. Eq A2.
-k1 = volume.cond (1) / volume.cond (2);
-k2 = volume.cond (2) / volume.cond (3);
-k3 = volume.cond (3) / volume.cond (4);
+k1 = headmodel.cond (1) / headmodel.cond (2);
+k2 = headmodel.cond (2) / headmodel.cond (3);
+k3 = headmodel.cond (3) / headmodel.cond (4);
 
 % Uses the formula provided Cuffin & Cohen 1979.
 if cuffin
     
     % Creates extra constants for the radii ratios.
-    b = volume.r (1) / volume.r (4);
-    c = volume.r (2) / volume.r (4);
-    d = volume.r (3) / volume.r (4);
+    b = headmodel.r (1) / headmodel.r (4);
+    c = headmodel.r (2) / headmodel.r (4);
+    d = headmodel.r (3) / headmodel.r (4);
     
     % The original Gamma definition (Cuffin & Cohen 1979. Eq A2) is:
     gamma1   = d .^ ( 2 * orders + 1 );
@@ -68,10 +70,10 @@ if cuffin
 else
     
     % Creates extra constants for the radii ratios.
-    a = volume.r (1) / volume.r (2);
-    b = volume.r (1) / volume.r (3);
-    c = volume.r (2) / volume.r (3);
-    d = volume.r (3) / volume.r (4);
+    a = headmodel.r (1) / headmodel.r (2);
+    b = headmodel.r (1) / headmodel.r (3);
+    c = headmodel.r (2) / headmodel.r (3);
+    d = headmodel.r (3) / headmodel.r (4);
     
     % The original defintion can be rewritten as (FieldTrip):
     gamma1_1 = ( orders * k1 + orders + 1) .* ( orders * k2 + orders + 1 );
