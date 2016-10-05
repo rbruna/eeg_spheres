@@ -68,31 +68,39 @@ function grid = my_leadfield ( cfg, data )
 
 % Based on FieldTrip 20160222 functions:
 % * ft_prepare_leadfield by Robert Oostenveld
+% * ft_compute_leadfield by Robert Oostenveld
 
 
+% % set the defaults
+% cfg.normalize      = ft_getopt(cfg, 'normalize',      'no');
+% cfg.normalizeparam = ft_getopt(cfg, 'normalizeparam', 0.5);
+% cfg.lbex           = ft_getopt(cfg, 'lbex',           'no');
+% cfg.sel50p         = ft_getopt(cfg, 'sel50p',         'no');
+% cfg.feedback       = ft_getopt(cfg, 'feedback',       'text');
+% cfg.mollify        = ft_getopt(cfg, 'mollify',        'no');
+% cfg.patchsvd       = ft_getopt(cfg, 'patchsvd',       'no');
+% cfg.backproject    = ft_getopt(cfg, 'backproject',    'yes'); % determines whether after rank reduction the subspace projected leadfield is backprojected onto the original space
+% % cfg.reducerank   = ft_getopt(cfg, 'reducerank', 'no');      % the default for this depends on EEG/MEG and is set below
+% 
+% % put the low-level options pertaining to the dipole grid in their own field
+% cfg = ft_checkconfig(cfg, 'renamed', {'tightgrid', 'tight'});  % this is moved to cfg.grid.tight by the subsequent createsubcfg
+% cfg = ft_checkconfig(cfg, 'renamed', {'sourceunits', 'unit'}); % this is moved to cfg.grid.unit by the subsequent createsubcfg
+% cfg = ft_checkconfig(cfg, 'createsubcfg',  {'grid'});
+% 
+% % this code expects the inside to be represented as a logical array
+% cfg.grid = ft_checkconfig(cfg.grid, 'renamed',  {'pnt' 'pos'});
+% cfg = ft_checkconfig(cfg, 'index2logical', 'yes');
+% 
+% if strcmp(cfg.sel50p, 'yes') && strcmp(cfg.lbex, 'yes')
+%   error('subspace projection with either lbex or sel50p is mutually exclusive');
+% end
 
 
-% Order of actions:
-% 1 Combines the sensors definitions.
-% 1.1 If data, gets the data channels.
-% 1.2 If cfg.channel, gets the desired channels.
-% 1.3 Gets the channels present in the sensor definition.
-% 4 Keeps in the headmodel only channels in the sensor definition.
-% 5 If LocalConcentricSpheres iterates along chanels.
-
-
-% If provided data, gets the present channels.
+% Checks the data, if provided.
 if nargin > 1
-    
-    % Checks the data.
-    data     = ft_checkdata ( data, 'feedback', 'no' );
-    
-    % Gets the channels present in the data.
-    datachan = data.label;
-    
-% Otherwise selects all channels.
+    data = ft_checkdata ( data, 'feedback', 'no' );
 else
-    datachan = { 'all' };
+    data = [];
 end
 
 % Gets the sensor definition.
@@ -100,10 +108,28 @@ if isfield ( cfg, 'sens' )
     
     % Gets the sensor definition from the configuration.
     sens = cfg.sens;
-% else
+else
+    
+    error ( 'No sensors'' definition provided.' );
 %     
 %     % Gets the sensor definition from the data.
 %     ft_fetch_sens ( cfg, 'data' );
+end
+
+% Gets the grid definition.
+if isfield ( cfg, 'grid' )
+    
+    % Gets the sensor definition from the configuration.
+    grid = cfg.grid;
+else
+    
+    error ( 'No grid''s definition provided.' );
+    
+    % Creates a grid definition.
+%     tmpcfg           = keepfields(cfg, {'grid', 'mri', 'headshape', 'symmetry', 'smooth', 'threshold', 'spheremesh', 'inwardshift'});
+%     tmpcfg.headmodel = headmodel;
+%     tmpcfg.grad      = sens; % either electrodes or gradiometers
+%     grid = ft_prepare_sourcemodel(tmpcfg);
 end
 
 % Gets the head model.
@@ -111,20 +137,261 @@ if isfield ( cfg, 'headmodel' )
     
     % Gets the sensor definition from the configuration.
     headmodel = cfg.headmodel;
-% else
+else
+    
+    error ( 'No head model provided.' );
 %     
 %     % Calculates the headmodel.
 end
 
+% Sanitizes the grid.
+grid = fixgrid ( grid );
+
+
+% Determines if the data is EEG or MEG.
+ismeg = isfield ( sens, 'coilpos' );
+iseeg = isfield ( sens, 'elecpos' );
+
+
 % Gets the channels present in the sensor definition.
-channels = ft_channelselection ( datachan, sens.label );
+channels = sens.label;
+
+% If a channel restriction has been provided uses it.
+if isfield ( cfg, 'channel' )
+    channels = ft_channelselection ( cfg.channel, channels );
+end
+
+% If data, restricts the channels to that.
+if data
+    channels = ft_channelselection ( data.label, channels );
+end
 
 % If the head model is channel-dependent get only those channels.
-if isfield ( headmodel, label )
-    
-    % Gets only channels present in both sets.
-    channels = ft_channelselection ( channels, headmodel.label );
+if isfield ( headmodel, 'label' )
+    channels = ft_channelselection ( headmodel.label, channels );
 end
+
+% Removes the unused channels and sensors from the sensor definition.
+sens = fixsens ( sens, channels );
+
+
+
+
+
+
+
+% % set the default for reducing the rank of the leadfields
+% if ft_senstype(sens, 'eeg')
+%   cfg.reducerank = ft_getopt(cfg, 'reducerank', 3);
+% else
+%   cfg.reducerank = ft_getopt(cfg, 'reducerank', 2);
+% end
+
+
+
+
+
+
+% Gets the number of channels and sources.
+nchannels = numel ( channels );
+nsources  = sum   ( grid.inside, 1 );
+
+% Selects the right function for each head model.
+switch headmodel.type
+    
+    % Local concentric spheres.
+    case 'localconcentricspheres'
+        
+        % Reserves memory for the leadfield matrix in 3D form.
+        leadfield = zeros ( nchannels, 3, nsources );
+        
+        % Iterates along channels.
+        for cindex = 1: nchannels
+            
+            % Gets the sensor label.
+            senslabel = sens.label { cindex };
+            
+            % Creates a dummy head model containing only this channel.
+            sensmodel = headmodel;
+            sensmodel.r = headmodel.r ( strcmp ( headmodel.label, senslabel ), : );
+            sensmodel.o = headmodel.o ( strcmp ( headmodel.label, senslabel ), : );
+            
+            % Calculates the leadfield for the current channel.
+            leadfield ( cindex, :, : ) = my_leadfield_eegspheres (  grid.pos ( grid.inside, : ), sens.elecpos ( cindex ), sensmodel );
+        end
+        
+    % Concentric spheres.
+    case 'concentricspheres'
+        
+        % Calculates the leadfield.
+        leadfield = my_leadfield_eegspheres ( grid.pos ( grid.inside, : ), sens.elecpos, headmodel );
+        
+        % Rewrites the leadfield as a 3D matrix.
+        leadfield = reshape ( leadfield, nchannels, 3, nsources );
+        
+    % Otherwise relies on FieldTrip.
+    otherwise
+        
+        % Calculates the leadfield using FieldTrip.
+        grid      = ft_prepare_leadfield ( cfg, data );
+        return
+end
+
+% If 'tra' field compose the channel leadfield from the sensors.
+if isfield ( sens, 'tra' )
+    leadfield = sens.tra * leadfield ( :, : );
+    leadfield = reshape ( leadfield, [], 3, nsources );
+    
+% If no 'tra' field and EEG sensors assumes average reference.
+elseif iseeg
+    leadfield = bsxfun ( @minus, leadfield, mean ( leadfield, 1 ) );
+end
+
+
+% Determines if apply rank reduction or not.
+if ~isfield ( cfg, 'reducerank' ) && ismeg
+        cfg.reducerank = 2;
+end
+
+% Applies the rank reduction.
+if isfield ( cfg, 'reducerank' ) && cfg.reducerank < 3
+    
+    % Goes through each dipole.
+    for sindex = 1: nsources
+        
+        % Performs a SVD over the data.
+        [ u, s, v ] = svd ( leadfield ( :, :, sindex ) );
+        
+        % Removes the smaller singular values from the matrix V.
+        v ( :, cfg.reducerank + 1: end ) = 0;
+        
+        % Recomposes the leadfield.
+        if ~isfield ( cfg, 'backproject' ) || cfg.backproject
+            leadfield ( :, :, sindex ) = u * s * v';
+            
+        % Removes the smaller singular values from the leadfield.
+        else
+            leadfield ( :, :, sindex ) = leadfield ( :, :, sindex ) * v;
+        end
+    end
+    
+    % Deletes the null dimensions of the leadfield matrix.
+    if isfield ( cfg, 'backproject' ) && ~cfg.backproject
+        leadfield ( :, cfg.reducerank + 1: end, : ) = [];
+    end
+end
+
+
+% Normalizes the leadfield, if requested.
+if isfield ( cfg, 'normalize' ) 
+    switch cfg.normalize
+        case 'yes'
+            norm = sum ( sum ( leadfield .^ 2, 1 ), 2 ) .^ cfg.normalizeparam;
+        case 'column'
+            norm = sum ( leadfield .^ 2, 1 ) .^ cfg.normalizeparam;
+        otherwise
+            norm = 1;
+    end
+    
+    % Normalizes the leadfield.
+    leadfield = bsxfun ( @rdivide, leadfield, norm );
+end
+
+
+% Applies a weight to each dipole, if requested.
+if isfield ( cfg, 'weight' ) && numel ( cfg.weight ) == nsources
+    leadfield = bsxfun ( @times, leadfield, reshape ( cfg.weight, 1, 1, [] ) );
+end
+
+% if ~isempty(chanunit) || ~isempty(dipoleunit)
+%   assert(strcmp(headmodel.unit,  'm'), 'unit conversion only possible for SI input units');
+%   assert(strcmp(sens.unit, 'm'), 'unit conversion only possible for SI input units');
+% end
+% 
+% if ~isempty(chanunit)
+%   assert(all(strcmp(sens.chanunit, 'V') | strcmp(sens.chanunit, 'V/m') | strcmp(sens.chanunit, 'T') | strcmp(sens.chanunit, 'T/m')), 'unit conversion only possible for SI input units');
+%   % compute conversion factor and multiply each row of the matrix
+%   scale = cellfun(@ft_scalingfactor, sens.chanunit(:), chanunit(:));
+%   lf = bsxfun(@times, lf, scale(:));
+%   % prior to this conversion, the units might be  (T/m)/(A*m) for planar gradients or   (V/m)/(A*m) for bipolar EEG
+%   % after this conversion, the units will be     (T/cm)/(A*m)                      or (uV/mm)/(A*m)
+% end
+% 
+% if ~isempty(dipoleunit)
+%   scale = ft_scalingfactor('A*m', dipoleunit); % compue the scaling factor from A*m to the desired dipoleunit
+%   lf    = lf/scale;                         % the leadfield is expressed in chanunit per dipoleunit, i.e. chanunit/dipoleunit
+% end
+
+
+
+
+
+
+% if isfield(cfg, 'grid') && isfield(cfg.grid, 'mom')
+%     % multiply with the normalized dipole moment to get the leadfield in the desired orientation
+%     grid.leadfield{thisindx} = grid.leadfield{thisindx} * grid.mom(:,thisindx);
+% end
+
+
+
+
+% Generates the leadfield cell.
+grid.leadfield = cell ( 1, size ( grid.pos, 1 ) );
+
+% Stores the leadfield in the grid.
+grid.leadfield ( grid.inside ) = num2cell ( leadfield, [ 1 2 ] );
+grid.label     = channels;
+grid.leadfielddimord = '{pos}_chan_ori';
+
+
+
+
+
+
+% % mollify the leadfields
+% if ~strcmp(cfg.mollify, 'no')
+%   grid = mollify(cfg, grid);
+% end
+% 
+% % combine leadfields in patches and do an SVD on them
+% if ~strcmp(cfg.patchsvd, 'no')
+%   grid = patchsvd(cfg, grid);
+% end
+% 
+% % compute the 50 percent channel selection subspace projection
+% if ~strcmp(cfg.sel50p, 'no')
+%   grid = sel50p(cfg, grid, sens);
+% end
+% 
+% % compute the local basis function expansion (LBEX) subspace projection
+% if ~strcmp(cfg.lbex, 'no')
+%   grid = lbex(cfg, grid);
+% end
+
+
+function grid = fixgrid ( grid )
+
+% Fix the absent or numerical 'inside' field.
+if ~isfield ( grid, 'inside' ) || islogical ( grid.inside )
+    
+    % Initializes the 'inside' field to a logical array.
+    inside = false ( size ( grid.pos ( :, 1 ) ) );
+    
+    % If numerical 'inside' field converts it to logical.
+    if isfield ( grid, 'inside' )
+        inside ( grid.inside ) = true;
+        
+    % Otherwise all the points are inside.
+    else
+        inside (:) = true;
+    end
+    
+    % Stores the 'inside' field.
+    grid.inside = inside;
+end
+
+
+function sens = fixsens ( sens, channels )
 
 % Modifies the sensors definition, if needed.
 if ~all ( ismember ( sens.label, channels ) )
@@ -135,9 +402,9 @@ if ~all ( ismember ( sens.label, channels ) )
     % Removes the sensors from the 'label' field.
     sens.label ( remidx ) = [];
     
-    % Removes the channels from each variable.
-    if isfield ( sens, 'chanpos' ),  sens.chanpos  ( remidx ) = []; end
-    if isfield ( sens, 'chanori' ),  sens.chanori  ( remidx ) = []; end
+    % Removes the channels from each channel field.
+    if isfield ( sens, 'chanpos' ),  sens.chanpos  ( remidx, : ) = []; end
+    if isfield ( sens, 'chanori' ),  sens.chanori  ( remidx, : ) = []; end
     if isfield ( sens, 'chantype' ), sens.chantype ( remidx ) = []; end
     if isfield ( sens, 'chanunit' ), sens.chanunit ( remidx ) = []; end
     
@@ -153,205 +420,18 @@ if ~all ( ismember ( sens.label, channels ) )
         % Removes the sensors from thwe 'tra' field.
         sens.tra ( :, remidx ) = [];
         
-        % Removes the sensors from each variable.
-        if isfield ( sens, 'coilpos' ),  sens.coilpos  ( remidx ) = []; end
-        if isfield ( sens, 'coilori' ),  sens.coilori  ( remidx ) = []; end
-        if isfield ( sens, 'elecpos' ),  sens.elecpos  ( remidx ) = []; end
+        % Removes the sensors from each sensor field.
+        if isfield ( sens, 'coilpos' ),  sens.coilpos  ( remidx, : ) = []; end
+        if isfield ( sens, 'coilori' ),  sens.coilori  ( remidx, : ) = []; end
+        if isfield ( sens, 'elecpos' ),  sens.elecpos  ( remidx, : ) = []; end
     end
-end
-
-
-% Gets the number of channels and sources.
-nchannels = numel ( channel );
-nsources  = numel ( grid.pos ( grid.inside, 1 ) );
-
-
-% Selects the right function for each head model.
-switch headmodel.type
     
-    % Local concentric spheres.
-    case 'localconcentricspheres'
+    % If no 'tra' field assumes that the mapping is 1:1.
+    if ~isfield ( sens, 'tra' )
         
-        % Reserves memory for the leadfield matrix in 3D form.
-        leadfield = zeros ( nchannels, 3, nsources );
-        
-        % Iterates along channels.
-        
-    % Concentric spheres.
-    case 'concentricspheres'
-        
-    otherwise
-end
-
-
-
-
-
-
-% the data can be passed as input arguments or can be read from disk
-hasdata = exist('data', 'var');
-
-if ~hasdata
-  % the data variable will be passed to the prepare_headmodel function below
-  % where it would be used for channel selection
-  data = [];
-else
-  % check if the input data is valid for this function
-  data = ft_checkdata(data);
-end
-
-% check if the input cfg is valid for this function
-cfg = ft_checkconfig(cfg, 'renamed', {'hdmfile', 'headmodel'});
-cfg = ft_checkconfig(cfg, 'renamed', {'vol',     'headmodel'});
-
-% set the defaults
-cfg.normalize      = ft_getopt(cfg, 'normalize',      'no');
-cfg.normalizeparam = ft_getopt(cfg, 'normalizeparam', 0.5);
-cfg.lbex           = ft_getopt(cfg, 'lbex',           'no');
-cfg.sel50p         = ft_getopt(cfg, 'sel50p',         'no');
-cfg.feedback       = ft_getopt(cfg, 'feedback',       'text');
-cfg.mollify        = ft_getopt(cfg, 'mollify',        'no');
-cfg.patchsvd       = ft_getopt(cfg, 'patchsvd',       'no');
-cfg.backproject    = ft_getopt(cfg, 'backproject',    'yes'); % determines whether after rank reduction the subspace projected leadfield is backprojected onto the original space
-% cfg.reducerank   = ft_getopt(cfg, 'reducerank', 'no');      % the default for this depends on EEG/MEG and is set below
-
-% put the low-level options pertaining to the dipole grid in their own field
-cfg = ft_checkconfig(cfg, 'renamed', {'tightgrid', 'tight'});  % this is moved to cfg.grid.tight by the subsequent createsubcfg
-cfg = ft_checkconfig(cfg, 'renamed', {'sourceunits', 'unit'}); % this is moved to cfg.grid.unit by the subsequent createsubcfg
-cfg = ft_checkconfig(cfg, 'createsubcfg',  {'grid'});
-
-% this code expects the inside to be represented as a logical array
-cfg.grid = ft_checkconfig(cfg.grid, 'renamed',  {'pnt' 'pos'});
-cfg = ft_checkconfig(cfg, 'index2logical', 'yes');
-
-if strcmp(cfg.sel50p, 'yes') && strcmp(cfg.lbex, 'yes')
-  error('subspace projection with either lbex or sel50p is mutually exclusive');
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% collect and preprocess the electrodes/gradiometer and head model
-[headmodel, sens, cfg] = prepare_headmodel(cfg, data);
-
-% set the default for reducing the rank of the leadfields
-if ft_senstype(sens, 'eeg')
-  cfg.reducerank = ft_getopt(cfg, 'reducerank', 3);
-else
-  cfg.reducerank = ft_getopt(cfg, 'reducerank', 2);
-end
-
-% construct the dipole grid according to the configuration
-tmpcfg           = keepfields(cfg, {'grid', 'mri', 'headshape', 'symmetry', 'smooth', 'threshold', 'spheremesh', 'inwardshift'});
-tmpcfg.headmodel = headmodel;
-tmpcfg.grad      = sens; % either electrodes or gradiometers
-grid = ft_prepare_sourcemodel(tmpcfg);
-
-% check whether units are equal (NOTE: this was previously not required,
-% this check can be removed if the underlying bug is resolved. See
-% http://bugzilla.fieldtriptoolbox.org/show_bug.cgi?id=2387
-if ~isfield(headmodel, 'unit') || ~isfield(grid, 'unit') || ~isfield(sens, 'unit')
-  warning('cannot determine the units of all geometric objects required for leadfield computation (headmodel, sourcemodel, sensor configuration). THIS CAN LEAD TO WRONG RESULTS! (refer to http://bugzilla.fieldtriptoolbox.org/show_bug.cgi?id=2387)');
-else
-  if ~strcmp(headmodel.unit, grid.unit) || ~strcmp(grid.unit, sens.unit)
-    error('geometric objects (headmodel, sourcemodel, sensor configuration) are not expressed in the same units (this used to be allowed, and will be again in the future, but for now there is a bug which prevents a correct leadfield from being computed; see http://bugzilla.fieldtriptoolbox.org/show_bug.cgi?id=2387)');
-  end
-end
-
-if ft_voltype(headmodel, 'openmeeg')
-  % repeated system calls to the openmeeg executable makes it rather slow
-  % calling it once is much more efficient
-  fprintf('calculating leadfield for all positions at once, this may take a while...\n');
-
-  % find the indices of all grid points that are inside the brain
-  insideindx = find(grid.inside);
-  ndip       = length(insideindx);
-  ok         = false(1,ndip);
-  batchsize  = ndip;
-
-  while ~all(ok)
-    % find the first one that is not yet done
-    begdip = find(~ok, 1);
-    % define a batch of dipoles to jointly deal with
-    enddip = min((begdip+batchsize-1), ndip); % don't go beyond the end
-    batch  = begdip:enddip;
-    try
-      lf = ft_compute_leadfield(grid.pos(insideindx(batch),:), sens, headmodel, 'reducerank', cfg.reducerank, 'normalize', cfg.normalize, 'normalizeparam', cfg.normalizeparam);
-      ok(batch) = true;
-    catch
-      ok(batch) = false;
-      % the "catch me" syntax is broken on MATLAB74, this fixes it
-      me = lasterror;
-      if ~isempty(findstr(me.message, 'Output argument "dsm" (and maybe others) not assigned during call to'))
-        % it does not fit in memory, split the problem in two halves and try once more
-        batchsize = floor(batchsize/500);
-        continue
-      else
-        rethrow(me);
-      end % handling this particular error
+        % Removes the sensors from each sensor field.
+        if isfield ( sens, 'coilpos' ),  sens.coilpos  ( remidx, : ) = []; end
+        if isfield ( sens, 'coilori' ),  sens.coilori  ( remidx, : ) = []; end
+        if isfield ( sens, 'elecpos' ),  sens.elecpos  ( remidx, : ) = []; end
     end
-
-    % reassign the large leadfield matrix over the single grid locations
-    for i=1:length(batch)
-      sel = (3*i-2):(3*i);           % 1:3, 4:6, ...
-      dipindx = insideindx(batch(i));
-      grid.leadfield{dipindx} = lf(:,sel);
-    end
-
-    clear lf
-
-  end % while
-
-else
-  % find the indices of all grid points that are inside the brain
-  insideindx = find(grid.inside);
-
-  ft_progress('init', cfg.feedback, 'computing leadfield');
-  for i=1:length(insideindx)
-    % compute the leadfield on all grid positions inside the brain
-    ft_progress(i/length(insideindx), 'computing leadfield %d/%d\n', i, length(insideindx));
-    thisindx = insideindx(i);
-    grid.leadfield{thisindx} = ft_compute_leadfield(grid.pos(thisindx,:), sens, headmodel, 'reducerank', cfg.reducerank, 'normalize', cfg.normalize, 'normalizeparam', cfg.normalizeparam, 'backproject', cfg.backproject);
-
-    if isfield(cfg, 'grid') && isfield(cfg.grid, 'mom')
-      % multiply with the normalized dipole moment to get the leadfield in the desired orientation
-      grid.leadfield{thisindx} = grid.leadfield{thisindx} * grid.mom(:,thisindx);
-    end
-  end % for all grid locations inside the brain
-  ft_progress('close');
 end
-
-% represent the leadfield for positions outside the brain as empty array
-grid.leadfield(~grid.inside) = {[]};
-
-% add the label of the channels
-grid.label           = sens.label;
-grid.leadfielddimord = '{pos}_chan_ori';
-
-% mollify the leadfields
-if ~strcmp(cfg.mollify, 'no')
-  grid = mollify(cfg, grid);
-end
-
-% combine leadfields in patches and do an SVD on them
-if ~strcmp(cfg.patchsvd, 'no')
-  grid = patchsvd(cfg, grid);
-end
-
-% compute the 50 percent channel selection subspace projection
-if ~strcmp(cfg.sel50p, 'no')
-  grid = sel50p(cfg, grid, sens);
-end
-
-% compute the local basis function expansion (LBEX) subspace projection
-if ~strcmp(cfg.lbex, 'no')
-  grid = lbex(cfg, grid);
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% do the general cleanup and bookkeeping at the end of the function
-ft_postamble debug
-ft_postamble trackconfig
-ft_postamble previous   data
-ft_postamble provenance grid
-ft_postamble history    grid

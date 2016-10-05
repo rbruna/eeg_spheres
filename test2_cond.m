@@ -146,9 +146,14 @@ cfg.senstype = 'eeg';
 cfg.headmodel = headmodel;
 cfg.channel = { 'all' '-EEG061' '-EEG062' '-EEG063' '-EEG064' };
 cfg.elec = eegdata.trialdata.elec;
+cfg.sens = eegdata.trialdata.elec;
 cfg.feedback = 'no';
 
 leadfield = ft_prepare_leadfield ( cfg );
-
 leadfield = cat ( 2, leadfield.leadfield {:} );
+
+tic
+leadfieldX = my_leadfield ( cfg );
+leadfieldX = cat ( 2, leadfieldX.leadfield {:} );
+toc
 
