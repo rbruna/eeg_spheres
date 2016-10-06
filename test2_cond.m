@@ -161,6 +161,8 @@ leadfield = cat ( 2, leadfield.leadfield {:} );
 % Fits the three concentric spheres to the meshes.
 headmodel = ft_headmodel_concentricspheres ( mridata.mesh );
 headmodellc = my_headmodel_eegspheres ( mridata.mesh, eegdata.trialdata.elec );
+headmodellc.o ( 1: 60, : ) = headmodel.o ( ones ( 60, 1 ), : );
+headmodellc.r ( 1: 60, : ) = headmodel.r ( ones ( 60, 1 ), : );
 
 cfg = [];
 cfg.grid = mridata.grid;
@@ -174,8 +176,8 @@ cfg.feedback = 'no';
 tic
 leadfieldX = my_leadfield ( cfg );
 leadfieldX = cat ( 2, leadfieldX.leadfield {:} );
+leadfieldX = leadfieldX';
 toc
-
 
 cfg2 = cfg;
 cfg2.headmodel = headmodellc;
@@ -183,4 +185,5 @@ cfg2.headmodel = headmodellc;
 tic
 leadfieldY = my_leadfield ( cfg2 );
 leadfieldY = cat ( 2, leadfieldY.leadfield {:} );
+leadfieldY = leadfieldY';
 toc

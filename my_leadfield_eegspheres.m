@@ -46,7 +46,7 @@ nsens       = size ( sens, 1 );
 
 
 % % Checks that the dipole is inside the inner sphere.
-% if any ( sqrt ( sum ( R .^ 2, 2 ) ) > vol.r (1) )
+% if any ( sqrt ( sum ( dips .^ 2, 2 ) ) > headmodel.r (1) )
 %     error ( 'There are dipoles is outside the brain.' );
 % end
 
@@ -143,6 +143,10 @@ for dindex = 1: ndips
     % Rotates back the leadfield and stores it.
     leadfield ( :, :, dindex ) = lf * rot;
 end
+
+% Silences the dipoles outside the sphere.
+outdip = sqrt ( sum ( dips .^ 2, 2 ) ) > headmodel.r (1);
+leadfield ( :, :, outdip ) = 0;
 
 % Reshapes the leadfield in matrix form.
 leadfield = leadfield ( :, : );
