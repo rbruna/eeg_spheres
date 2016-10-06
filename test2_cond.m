@@ -2,13 +2,15 @@ clc
 clear
 close all
 
+% Adds the functions folder to the path (in development).
+addpath ( sprintf ( '%s/functions', pwd ) );
+
 % Adds FT to the path.
 ft_path;
 ft_defaults
 
 ft_hastoolbox ( 'freesurfer', 1, 1 );
 ft_hastoolbox ( 'spm8', 1, 1 );
-
 
 clear
 
@@ -156,4 +158,13 @@ tic
 leadfieldX = my_leadfield ( cfg );
 leadfieldX = cat ( 2, leadfieldX.leadfield {:} );
 toc
+
+
+
+
+headmodel = my_headmodel_eegspheres ( mridata.mesh, eegdata.trialdata.elec );
+
+
+
+
 

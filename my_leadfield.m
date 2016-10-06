@@ -192,7 +192,7 @@ switch headmodel.type
             sensmodel.o = headmodel.o ( strcmp ( headmodel.label, senslabel ), : );
             
             % Calculates the leadfield for the current channel.
-            leadfield ( cindex, :, : ) = my_leadfield_eegspheres (  grid.pos ( grid.inside, : ), sens.elecpos ( cindex ), sensmodel );
+            leadfield ( cindex, : ) = my_leadfield_eegspheres (  grid.pos ( grid.inside, : ), sens.elecpos ( cindex ), sensmodel );
         end
         
     % Concentric spheres.
