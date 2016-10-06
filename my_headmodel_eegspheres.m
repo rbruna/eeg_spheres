@@ -107,7 +107,7 @@ singlesphere  = ft_getopt(varargin, 'singlesphere', 'no');
 
 
 % Initializes the center and radius arrays.
-nchans  = numel(sens.label);
+nchans  = numel ( sens.label );
 radii   = zeros ( nchans, numel ( mesh ) );
 centers = zeros ( nchans, 3 );
 
@@ -138,7 +138,7 @@ if strcmp ( singlesphere, 'yes' )
     
     % Sets the output.
     headmodel       = [];
-    headmodel.type  = 'localconcentricspheres';
+    headmodel.type  = 'concentricspheres';
     headmodel.o     = center;
     headmodel.r     = radius;
     headmodel.unit  = mesh (1).unit;
@@ -230,6 +230,9 @@ for chan = 1: nchans
     if iseeg
         r ( end ) = sqrt ( sum ( ( o - chanpos ) .^ 2 ) );
     end
+    
+    % Checks that the radii are correctly ordered.
+    r = sort ( r );
     
     % Stores the sphere center and radius.
     centers ( chan, : ) = o;

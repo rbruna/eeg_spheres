@@ -71,7 +71,20 @@ end
 
 %%
 
-for sindex = 1: size ( sens.label, 1 )
+% If EEG projects the channels onto the outter mesh.
+if isfield ( sens, 'elecpos'  )
+    for eindex = 1: 60
+        [ ~, Pm ] = NFT_dmp ( sens.elecpos ( eindex, : ), mridata.mesh.bnd ( end ).pnt, mridata.mesh.bnd ( end ).tri );
+        sens.elecpos ( eindex, : ) = Pm;
+    end
+    for cindex = 1: 60
+        [ ~, Pm ] = NFT_dmp ( sens.chanpos ( cindex, : ), mridata.mesh.bnd ( end ).pnt, mridata.mesh.bnd ( end ).tri );
+        sens.chanpos ( cindex, : ) = Pm;
+    end
+end
+
+for sindex = 42
+% for sindex = 1: size ( sens.label, 1 )
     
     label  = sens.label { sindex };
     hindex = find ( strcmp ( headmodellc.label, label ) );
@@ -102,15 +115,13 @@ for sindex = 1: size ( sens.label, 1 )
     spheres.o    = headmodellc.o ( hindex, : );
     spheres.type = 'concentricspheres';
     spheres.r    = headmodellc.r ( hindex, 1 );
-    ft_plot_vol ( spheres, 'edgecolor', 'none', 'facecolor', 'brain', 'facealpha', 0.3 )
+    ft_plot_vol ( spheres, 'edgecolor', 'none', 'facecolor', 'brain', 'facealpha', 0.8 )
     spheres.r    = headmodellc.r ( hindex, 2 );
     ft_plot_vol ( spheres, 'edgecolor', 'none',  'facecolor', 'white', 'facealpha', 0.6 )
     spheres.r    = headmodellc.r ( sindex, 3 );
     ft_plot_vol ( spheres, 'edgecolor', 'none',  'facecolor', 'skin',  'facealpha', 0.3 )
     
-    plot3 ( mridata.grid.pos ( 276, 1 ), mridata.grid.pos ( 276, 2 ), mridata.grid.pos ( 276, 3 ), '*b' )
-    plot3 ( mridata.grid.pos ( 661, 1 ), mridata.grid.pos ( 661, 2 ), mridata.grid.pos ( 661, 3 ), '*b' )
-    plot3 ( mridata.grid.pos ( 891, 1 ), mridata.grid.pos ( 891, 2 ), mridata.grid.pos ( 891, 3 ), '*b' )
+%     plot3 ( mridata.grid.pos ( [ 719 720 ], 1 ), mridata.grid.pos ( [ 719 720 ], 2 ), mridata.grid.pos ( [ 719 720 ], 3 ), '*b' )
     
     rotate3d
 %     savefig ( sprintf ( '%s.fig', sens.label { sindex } ) );

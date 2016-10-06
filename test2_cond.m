@@ -158,11 +158,28 @@ leadfield = cat ( 2, leadfield.leadfield {:} );
 
 
 
+% Loads the EEG data.
+eegdata = load ( 'alc02_restingOA_EEG' );
+eegdata.trialdata.elec = ft_convert_units ( eegdata.trialdata.elec, 'm' );
+eegdata.trialdata.grad = ft_convert_units ( eegdata.trialdata.grad, 'm' );
+eegdata.trialdata.elec.elecpos ( isnan ( eegdata.trialdata.elec.elecpos ) ) = 0;
+
+% Loads the subject segmentation and the generated meshes.
+mridata = load ( 'alc02_mri.mat' );
+mridata.mesh = ft_convert_units ( mridata.mesh, 'mm' );
+mridata.mesh = ft_transform_geometry ( eegdata.mriinfo.transform, mridata.mesh );
+mridata.mesh = ft_convert_units ( mridata.mesh, 'm' );
+mridata.grid = ft_convert_units ( mridata.grid, 'mm' );
+mridata.grid = ft_transform_geometry ( eegdata.mriinfo.transform, mridata.grid );
+mridata.grid = ft_convert_units ( mridata.grid, 'm' );
+
 % Fits the three concentric spheres to the meshes.
-headmodel = ft_headmodel_concentricspheres ( mridata.mesh );
+% headmodel = ft_headmodel_concentricspheres ( mridata.mesh );
+headmodel = my_headmodel_eegspheres ( mridata.mesh, eegdata.trialdata.elec, 'singlesphere', 'yes' );
 headmodellc = my_headmodel_eegspheres ( mridata.mesh, eegdata.trialdata.elec );
-headmodellc.o ( 1: 60, : ) = headmodel.o ( ones ( 60, 1 ), : );
-headmodellc.r ( 1: 60, : ) = headmodel.r ( ones ( 60, 1 ), : );
+% idx = 1: 4;
+% headmodellc.o ( idx, : ) = headmodel.o ( ones ( size ( idx ) ), : );
+% headmodellc.r ( idx, : ) = headmodel.r ( ones ( size ( idx ) ), : );
 
 cfg = [];
 cfg.grid = mridata.grid;

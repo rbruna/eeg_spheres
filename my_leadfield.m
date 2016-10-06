@@ -223,7 +223,7 @@ if isfield ( sens, 'tra' )
     
 % If no 'tra' field and EEG sensors assumes average reference.
 elseif iseeg
-%     leadfield = bsxfun ( @minus, leadfield, mean ( leadfield, 1 ) );
+    leadfield = bsxfun ( @minus, leadfield, mean ( leadfield, 1 ) );
 end
 
 
