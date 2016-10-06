@@ -2,66 +2,19 @@ function grid = my_leadfield ( cfg, data )
 
 % Leadfield calculation.
 %
+% Use as
+%   grid = ft_prepare_leadfield ( cfg, data );
+%
+% where:
+%   cfg   Structure as provided to ft_prepare_leadfield.
+%   data  FieldTrip data to select channels (optional).
+%
+% This function mimics the FieldTrip function ft_prepare_leadfield. See
+% help on this function for more information.
+%
 % This function requires FieldTrip 20160222 or newer to work properly.
 
-% FT_PREPARE_LEADFIELD computes the forward model for many dipole locations
-% on a regular 2D or 3D grid and stores it for efficient inverse modelling
-%
-% Use as
-%   [grid] = ft_prepare_leadfield(cfg, data);
-%
-% It is neccessary to input the data on which you want to perform the
-% inverse computations, since that data generally contain the gradiometer
-% information and information about the channels that should be included in
-% the forward model computation. The data structure can be either obtained
-% from FT_PREPROCESSING, FT_FREQANALYSIS or FT_TIMELOCKANALYSIS. If the data is empty,
-% all channels will be included in the forward model.
-%
-% The configuration should contain
-%   cfg.channel            = Nx1 cell-array with selection of channels (default = 'all'),
-%                            see FT_CHANNELSELECTION for details
-%
-% The positions of the sources can be specified as a regular 3-D
-% grid that is aligned with the axes of the head coordinate system
-%   cfg.grid.xgrid      = vector (e.g. -20:1:20) or 'auto' (default = 'auto')
-%   cfg.grid.ygrid      = vector (e.g. -20:1:20) or 'auto' (default = 'auto')
-%   cfg.grid.zgrid      = vector (e.g.   0:1:20) or 'auto' (default = 'auto')
-%   cfg.grid.resolution = number (e.g. 1 cm) for automatic grid generation
-% Alternatively the position of a few sources at locations of interest can
-% be specified, for example obtained from an anatomical or functional MRI
-%   cfg.grid.pos        = N*3 matrix with position of each source
-%   cfg.grid.inside     = N*1 vector with boolean value whether grid point is inside brain (optional)
-%   cfg.grid.dim        = [Nx Ny Nz] vector with dimensions in case of 3-D grid (optional)
-%
-% The volume conduction model of the head should be specified as
-%   cfg.headmodel     = structure with volume conduction model, see FT_PREPARE_HEADMODEL
-%
-% The EEG or MEG sensor positions can be present in the data or can be specified as
-%   cfg.elec          = structure with electrode positions, see FT_DATATYPE_SENS
-%   cfg.grad          = structure with gradiometer definition, see FT_DATATYPE_SENS
-%   cfg.elecfile      = name of file containing the electrode positions, see FT_READ_SENS
-%   cfg.gradfile      = name of file containing the gradiometer definition, see FT_READ_SENS
-%
-% Optionally, you can modify the leadfields by reducing the rank (i.e.
-% remove the weakest orientation), or by normalizing each column.
-%   cfg.reducerank      = 'no', or number (default = 3 for EEG, 2 for MEG)
-%   cfg.normalize       = 'yes' or 'no' (default = 'no')
-%   cfg.normalizeparam  = depth normalization parameter (default = 0.5)
-%   cfg.backproject     = 'yes' or 'no' (default = 'yes') determines when reducerank is applied
-%                         whether the lower rank leadfield is projected back onto the original
-%                         linear subspace, or not.
-%
-% To facilitate data-handling and distributed computing you can use
-%   cfg.inputfile   =  ...
-% If you specify this option the input data will be read from a *.mat
-% file on disk. This mat files should contain only a single variable named 'data',
-% corresponding to the input structure.
-%
-% See also FT_SOURCEANALYSIS, FT_DIPOLEFITTING, FT_PREPARE_HEADMODEL,
-% FT_PREPARE_SOURCEMODEL
-
 % Undocumented local options:
-% cfg.feedback
 % cfg.sel50p      = 'no' (default) or 'yes'
 % cfg.lbex        = 'no' (default) or a number that corresponds with the radius
 % cfg.mollify     = 'no' (default) or a number that corresponds with the FWHM
@@ -71,28 +24,14 @@ function grid = my_leadfield ( cfg, data )
 % * ft_compute_leadfield by Robert Oostenveld
 
 
-% % set the defaults
-% cfg.normalize      = ft_getopt(cfg, 'normalize',      'no');
-% cfg.normalizeparam = ft_getopt(cfg, 'normalizeparam', 0.5);
-% cfg.lbex           = ft_getopt(cfg, 'lbex',           'no');
-% cfg.sel50p         = ft_getopt(cfg, 'sel50p',         'no');
-% cfg.feedback       = ft_getopt(cfg, 'feedback',       'text');
-% cfg.mollify        = ft_getopt(cfg, 'mollify',        'no');
-% cfg.patchsvd       = ft_getopt(cfg, 'patchsvd',       'no');
-% cfg.backproject    = ft_getopt(cfg, 'backproject',    'yes'); % determines whether after rank reduction the subspace projected leadfield is backprojected onto the original space
-% % cfg.reducerank   = ft_getopt(cfg, 'reducerank', 'no');      % the default for this depends on EEG/MEG and is set below
-% 
-% % put the low-level options pertaining to the dipole grid in their own field
-% cfg = ft_checkconfig(cfg, 'renamed', {'tightgrid', 'tight'});  % this is moved to cfg.grid.tight by the subsequent createsubcfg
-% cfg = ft_checkconfig(cfg, 'renamed', {'sourceunits', 'unit'}); % this is moved to cfg.grid.unit by the subsequent createsubcfg
-% cfg = ft_checkconfig(cfg, 'createsubcfg',  {'grid'});
-% 
-% % this code expects the inside to be represented as a logical array
-% cfg.grid = ft_checkconfig(cfg.grid, 'renamed',  {'pnt' 'pos'});
-% cfg = ft_checkconfig(cfg, 'index2logical', 'yes');
-% 
-% if strcmp(cfg.sel50p, 'yes') && strcmp(cfg.lbex, 'yes')
-%   error('subspace projection with either lbex or sel50p is mutually exclusive');
+% These options are not yet implemented.
+if any ( isfield ( cfg, { 'mollify' 'patchsvd' 'sel50p' 'lbex' } ) )
+    warning ( 'ft_prepare_leadfield''s options ''mollify'', ''patchsvd'', ''sel50p'' and ''lbex'' are not yet implemented. Ignoring.' );
+end
+
+% % Checks that a maximum of one subspace projection is selected.
+% if isfield ( cfg, 'sel50p' ) && isfield ( cfg, 'lbex' )
+%     error ( 'Only one subspace projection method is allowed.' );
 % end
 
 
@@ -175,21 +114,57 @@ end
 sens = fixsens ( sens, channels );
 
 
+% If channel units checks if the unit transformation is possible.
+if isfield ( cfg, 'chanunit' )
+    
+    % If no channel units the transformation is not possible.
+    if ~isfield ( sens, 'chanunit' )
+        
+        % Removes the channel units.
+        cfg = rmfield ( cfg, 'chanunit' );
+        
+    % Transformation onlo possible for SI units.
+    elseif ~all ( ismember ( sens.chanunit, { 'V' 'V/m' 'T' 'T/m' } ) )
+        warning ( 'Channel units only can be adjusted if sensors are defined in SI units. Ignoring.' );
+        
+        % Removes the channel units.
+        cfg = rmfield ( cfg, 'chanunit' );
+    end
+end
 
-
-
-
-
-% % set the default for reducing the rank of the leadfields
-% if ft_senstype(sens, 'eeg')
-%   cfg.reducerank = ft_getopt(cfg, 'reducerank', 3);
-% else
-%   cfg.reducerank = ft_getopt(cfg, 'reducerank', 2);
-% end
-
-
-
-
+% If channel or sources units transforms everything to SI units (m).
+if any ( isfield ( cfg, { 'chanunit' 'dipoleunit' } ) )
+    
+    % Makes sure that both the grid and the sensor definition have units.
+    grid = ft_convert_units ( grid, 'm' );
+    sens = ft_convert_units ( sens, 'm' );
+    
+    % Checks if the units are SI units.
+    if ~strcmp ( grid.unit, 'm' )
+        warning ( 'Converting the grid to meters in order to adjust the channel and dipole units.' );
+        grid = ft_convert_units ( grid, 'm' );
+    end
+    if ~strcmp ( sens.unit, 'm' )
+        warning ( 'Converting the sensor definition to meters in order to adjust the channel and dipole units.' );
+        sens = ft_convert_units ( sens, 'm' );
+    end
+    
+    % Initializes the leadfield scale.
+    lfscale = 1;
+    
+    % Adjust the scale for the sensors' edge.
+    if isfield ( cfg, 'chanunit' )
+        lfscale = lfscale * cellfun ( @ft_scalingfactor, sens.chanunit (:), cfg.chanunit (:) );
+    end
+    
+    % Adjusts the scale in the dipoles' edge.
+    if isfield ( cfg, 'dipoleunit' )
+        lfscale = lfscale / ft_scalingfactor ( 'A*m', cfg.dipoleunit );
+    end
+    
+else
+    lfscale = 1;
+end
 
 
 % Gets the number of channels and sources.
@@ -236,6 +211,7 @@ switch headmodel.type
         grid      = ft_prepare_leadfield ( cfg, data );
         return
 end
+
 
 % If 'tra' field compose the channel leadfield from the sensors.
 if isfield ( sens, 'tra' )
@@ -303,36 +279,15 @@ if isfield ( cfg, 'weight' ) && numel ( cfg.weight ) == nsources
     leadfield = bsxfun ( @times, leadfield, reshape ( cfg.weight, 1, 1, [] ) );
 end
 
-% if ~isempty(chanunit) || ~isempty(dipoleunit)
-%   assert(strcmp(headmodel.unit,  'm'), 'unit conversion only possible for SI input units');
-%   assert(strcmp(sens.unit, 'm'), 'unit conversion only possible for SI input units');
-% end
-% 
-% if ~isempty(chanunit)
-%   assert(all(strcmp(sens.chanunit, 'V') | strcmp(sens.chanunit, 'V/m') | strcmp(sens.chanunit, 'T') | strcmp(sens.chanunit, 'T/m')), 'unit conversion only possible for SI input units');
-%   % compute conversion factor and multiply each row of the matrix
-%   scale = cellfun(@ft_scalingfactor, sens.chanunit(:), chanunit(:));
-%   lf = bsxfun(@times, lf, scale(:));
-%   % prior to this conversion, the units might be  (T/m)/(A*m) for planar gradients or   (V/m)/(A*m) for bipolar EEG
-%   % after this conversion, the units will be     (T/cm)/(A*m)                      or (uV/mm)/(A*m)
-% end
-% 
-% if ~isempty(dipoleunit)
-%   scale = ft_scalingfactor('A*m', dipoleunit); % compue the scaling factor from A*m to the desired dipoleunit
-%   lf    = lf/scale;                         % the leadfield is expressed in chanunit per dipoleunit, i.e. chanunit/dipoleunit
-% end
 
+% Scales the leadfield, if requested.
+leadfield = bsxfun ( @times, leadfield, lfscale );
 
-
-
-
-
-% if isfield(cfg, 'grid') && isfield(cfg.grid, 'mom')
-%     % multiply with the normalized dipole moment to get the leadfield in the desired orientation
-%     grid.leadfield{thisindx} = grid.leadfield{thisindx} * grid.mom(:,thisindx);
-% end
-
-
+% Projects the dipoles over the dipole moment, if requested.
+% (Not sure about the dimensions).
+if isfield ( grid, 'mom' )
+    leadfield = bsxfun ( @times, leadfield, grid.mom );
+end
 
 
 % Generates the leadfield cell.
@@ -342,10 +297,6 @@ grid.leadfield = cell ( 1, size ( grid.pos, 1 ) );
 grid.leadfield ( grid.inside ) = num2cell ( leadfield, [ 1 2 ] );
 grid.label     = channels;
 grid.leadfielddimord = '{pos}_chan_ori';
-
-
-
-
 
 
 % % mollify the leadfields
@@ -358,11 +309,12 @@ grid.leadfielddimord = '{pos}_chan_ori';
 %   grid = patchsvd(cfg, grid);
 % end
 % 
-% % compute the 50 percent channel selection subspace projection
-% if ~strcmp(cfg.sel50p, 'no')
-%   grid = sel50p(cfg, grid, sens);
+% % Keeps only the nearest 50% of the channels.
+% sens.coilpos=sens.elecpos;
+% if isfield ( cfg, 'sel50p' )
+%   grid = sel50p ( cfg, grid, sens );
 % end
-% 
+
 % % compute the local basis function expansion (LBEX) subspace projection
 % if ~strcmp(cfg.lbex, 'no')
 %   grid = lbex(cfg, grid);
