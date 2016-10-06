@@ -184,15 +184,18 @@ switch headmodel.type
         for cindex = 1: nchannels
             
             % Gets the sensor label.
-            senslabel = sens.label { cindex };
+            senslabel      = sens.label { cindex };
             
             % Creates a dummy head model containing only this channel.
-            sensmodel = headmodel;
-            sensmodel.r = headmodel.r ( strcmp ( headmodel.label, senslabel ), : );
-            sensmodel.o = headmodel.o ( strcmp ( headmodel.label, senslabel ), : );
+            sensmodel      = [];
+            sensmodel.r    = headmodel.r ( strcmp ( headmodel.label, senslabel ), : );
+            sensmodel.o    = headmodel.o ( strcmp ( headmodel.label, senslabel ), : );
+            sensmodel.unit = headmodel.unit;
+            sensmodel.cond = headmodel.cond;
+            sensmodel.type = 'concentricspheres';
             
             % Calculates the leadfield for the current channel.
-            leadfield ( cindex, : ) = my_leadfield_eegspheres (  grid.pos ( grid.inside, : ), sens.elecpos ( cindex ), sensmodel );
+            leadfield ( cindex, : ) = my_leadfield_eegspheres (  grid.pos ( grid.inside, : ), sens.elecpos ( cindex, : ), sensmodel );
         end
         
     % Concentric spheres.
