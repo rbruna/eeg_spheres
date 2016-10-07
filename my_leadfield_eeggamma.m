@@ -16,7 +16,7 @@ function gamma = my_leadfield_eeggamma ( headmodel, order, cuffin )
 % This implementation is adapted from:
 %   Lutkenhoner, Habilschrift 1992. Möglichkeiten und Grenzen der neuromagnetischen Quellenanalyse.
 % which again is taken from:
-%   Cuffin and Cohen. Comparion of the Magnetoencephalogram and the Electroencephalogram. Electroencephalogr Clin Neurophysiol, 47:131-146, 1979.
+%   Cuffin and Cohen. Comparison of the Magnetoencephalogram and the Electroencephalogram. Electroencephalogr Clin Neurophysiol, 47:131-146.
 
 % Based on FieldTrip 20160222 functions:
 % * eeg_leadfield4_prepare by Robert Oostenveld
