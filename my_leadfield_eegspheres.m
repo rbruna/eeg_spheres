@@ -160,7 +160,7 @@ end
 % Corrects the leadfield amplitud of the dipoles outside the sphere.
 leadfield = bsxfun ( @times, leadfield, reshape ( outcors, 1, 1, [] ) );
 
-% % Silences the dipoles outside the inner sphere.%
+% Silences the dipoles outside the inner sphere.%
 % if any ( outcors < 1 )
 %     fprintf ( 1, 'Some of the dipoles are outside the inner sphere of the model. Setting its leadfield to zero.\n' );
 %     leadfield ( :, :, outcors < 1 ) = 0;

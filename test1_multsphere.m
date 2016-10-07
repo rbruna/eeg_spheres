@@ -83,7 +83,7 @@ if isfield ( sens, 'elecpos'  )
     end
 end
 
-for sindex = 42
+for sindex = 11
 % for sindex = 1: size ( sens.label, 1 )
     
     label  = sens.label { sindex };
@@ -121,7 +121,7 @@ for sindex = 42
     spheres.r    = headmodellc.r ( sindex, 3 );
     ft_plot_vol ( spheres, 'edgecolor', 'none',  'facecolor', 'skin',  'facealpha', 0.3 )
     
-%     plot3 ( mridata.grid.pos ( [ 719 720 ], 1 ), mridata.grid.pos ( [ 719 720 ], 2 ), mridata.grid.pos ( [ 719 720 ], 3 ), '*b' )
+    plot3 ( mridata.grid.pos ( [ 719 720 ], 1 ), mridata.grid.pos ( [ 719 720 ], 2 ), mridata.grid.pos ( [ 719 720 ], 3 ), '*b' )
     
     rotate3d
 %     savefig ( sprintf ( '%s.fig', sens.label { sindex } ) );

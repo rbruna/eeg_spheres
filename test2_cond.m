@@ -172,6 +172,9 @@ mridata.mesh = ft_convert_units ( mridata.mesh, 'm' );
 mridata.grid = ft_convert_units ( mridata.grid, 'mm' );
 mridata.grid = ft_transform_geometry ( eegdata.mriinfo.transform, mridata.grid );
 mridata.grid = ft_convert_units ( mridata.grid, 'm' );
+% mridata.grid.pos ( 1: end-10, : ) = [];
+% mridata.grid.inside ( 1: end-10 ) = [];
+
 
 % Fits the three concentric spheres to the meshes.
 % headmodel = ft_headmodel_concentricspheres ( mridata.mesh );
