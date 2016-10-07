@@ -28,6 +28,10 @@ conductivities = [
     0.0042, ... % Skull conductivity.
     0.3300 ];   % Skin conductivity.
 
+% Defines the minimum skull and scalp thicknesses.
+minskull = 0.005;
+minscalp = 0.007;
+
 
 % Sanitices the meshes.
 mesh = fixmesh ( mesh );
@@ -37,6 +41,10 @@ mesh = sortmesh ( mesh );
 
 % Makes sure that mesh and sensors have the same geometrical units.
 sens = ft_convert_units ( sens, mesh (1).unit );
+
+% Transforms the minimum thicknesses to the meshes units.
+minskull = minskull * ft_scalingfactor ( 'm', mesh (1).unit );
+minscalp = minscalp * ft_scalingfactor ( 'm', mesh (1).unit );
 
 
 % Determines if the input is EEG or MEG.
@@ -231,12 +239,26 @@ for chan = 1: nchans
         r ( end ) = sqrt ( sum ( ( o - chanpos ) .^ 2 ) );
     end
     
-    % Checks that the radii are correctly ordered.
-    r = sort ( r );
-    
     % Stores the sphere center and radius.
     centers ( chan, : ) = o;
     radii   ( chan, : ) = r;
+end
+
+% Gets the thickness of the skull and the scalp.
+dradii = diff ( radii, 1, 2 );
+
+% Fixes the thickness if too low.
+if any ( dradii ( :, 1 ) < minskull )
+    fprintf ( 1, 'The skull is too thin in some points. Trying to fix them.\n' );
+    
+    % Sets the minimum skull thickness to 5mm.
+    radii ( :, 2 ) = max ( radii ( :, 1 ) + minskull, radii ( :, 2 ) );
+end
+if any ( dradii ( :, 2 ) < minscalp )
+    fprintf ( 1, 'The scalp is too thin in some points. Trying to fix them.\n' );
+    
+    % Sets the minimum scalp thickness to 7mm.
+    radii ( :, 2 ) = max ( radii ( :, 1 ) + minscalp, radii ( :, 2 ) );
 end
 
 
