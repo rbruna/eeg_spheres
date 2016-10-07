@@ -71,7 +71,7 @@ outcors = min ( outcors, 1 );
 %     fprintf ( 1, 'Some of the dipoles are outside the inner sphere of the model. Fixing it using the method of images.\n' );
 % end
 
-% Uses the method of images to moves the dipoles inside the sphere.
+% Uses the method of images to moves the dipoles inside the inner sphere.
 radii =  radii .* outcors .^ 2;
 
 % Generates the costant factors for each dipole.
@@ -160,8 +160,11 @@ end
 % Corrects the leadfield amplitud of the dipoles outside the sphere.
 leadfield = bsxfun ( @times, leadfield, reshape ( outcors, 1, 1, [] ) );
 
-% % Silences the dipoles outside the sphere.
-% leadfield ( :, :, dipout ) = 0;
+% % Silences the dipoles outside the inner sphere.%
+% if any ( outcors < 1 )
+%     fprintf ( 1, 'Some of the dipoles are outside the inner sphere of the model. Setting its leadfield to zero.\n' );
+%     leadfield ( :, :, outcors < 1 ) = 0;
+% end
 
 % Reshapes the leadfield in matrix form.
 leadfield = leadfield ( :, : );
