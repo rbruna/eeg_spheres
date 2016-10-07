@@ -14,6 +14,9 @@ function leadfield = my_leadfield_eegspheres ( dips, sens, headmodel )
 %       headmodel.cond  Conductivity of each sphere.
 %       headmodel.t     Series expansion for Gamma (optional).
 %
+% Electrodes must be on the surface of the outter sphere. Otherwise it
+% position is radially projected over this surface.
+%
 % This function requires FieldTrip 20160222 or newer to work properly.
 
 % This implementation is adapted from:
@@ -36,8 +39,11 @@ sens        = bsxfun ( @minus, sens,  headmodel.o );
 headmodel.o = bsxfun ( @minus, headmodel.o, headmodel.o );
 
 % Gets the radius and the conductivity of the outter sphere.
-radius      = headmodel.r    (4);
-cond        = headmodel.cond (4);
+oradius     = headmodel.r    (4);
+ocond       = headmodel.cond (4);
+
+% Gets the radius of the inner sphere.
+iradius     = headmodel.r    (1);
 
 % Gets the terms of the expansion.
 terms       = headmodel.t;
@@ -50,28 +56,29 @@ nterms      = numel ( terms );
 ndips       = size ( dips, 1 );
 nsens       = size ( sens, 1 );
 
+% Calculates the radius of each dipole relative to the outter sphere.
+% radii       = sqrt ( sum ( dips .^ 2, 2 ) ) / radius;
+radii       = zeros ( ndips, 1, 'single' );
+for c = 1: ndips
+    radii (c)      = norm ( dips ( c, : ) );
+end
 
-% % Checks that the dipole is inside the inner sphere.
-% if any ( sqrt ( sum ( dips .^ 2, 2 ) ) > headmodel.r (1) )
-%     error ( 'There are dipoles is outside the brain.' );
+% Calculates the correction factor for sources outside the inner sphere.
+outcors = iradius ./ radii;
+outcors = min ( outcors, 1 );
+
+% if any ( outcors < 1 )
+%     fprintf ( 1, 'Some of the dipoles are outside the inner sphere of the model. Fixing it using the method of images.\n' );
 % end
 
-% Projects the electrodes to the surface of the sphere.
-dist        = sqrt   ( sum ( sens .^ 2, 2 ) );
-sens        = bsxfun ( @rdivide, bsxfun ( @times, sens, radius ), dist );
-
-% Calculates the (relative) radius of each dipole.
-% radii      = sqrt ( sum ( dips .^ 2, 2 ) ) / radius;
-radii = zeros ( ndips, 1, 'single' );
-for c = 1: ndips
-    radii (c)       = norm ( dips ( c, : ) ) / radius;
-end
+% Uses the method of images to moves the dipoles inside the sphere.
+radii =  radii .* outcors .^ 2;
 
 % Generates the costant factors for each dipole.
 % Cuffin & Cohen 1979. Eq A2. Part 1.
 const1      = ( 2 * ( 1: nterms ) + 1 ) .^ 4;
-const2      = bsxfun ( @power, radii, ( 1: nterms ) - 1 );
-const3      = terms .* 4 * pi * cond * radius ^ 2;
+const2      = bsxfun ( @power, radii / oradius, ( 1: nterms ) - 1 );
+const3      = terms .* 4 * pi * ocond * oradius ^ 2;
 const       = bsxfun ( @rdivide, bsxfun ( @times, const1, const2 ), const3 );
 
 
@@ -150,9 +157,11 @@ for dindex = 1: ndips
     leadfield ( :, :, dindex ) = lf * rot;
 end
 
-% Silences the dipoles outside the sphere.
-outdip = sqrt ( sum ( dips .^ 2, 2 ) ) > headmodel.r (1);
-leadfield ( :, :, outdip ) = 0;
+% Corrects the leadfield amplitud of the dipoles outside the sphere.
+leadfield = bsxfun ( @times, leadfield, reshape ( outcors, 1, 1, [] ) );
+
+% % Silences the dipoles outside the sphere.
+% leadfield ( :, :, dipout ) = 0;
 
 % Reshapes the leadfield in matrix form.
 leadfield = leadfield ( :, : );
