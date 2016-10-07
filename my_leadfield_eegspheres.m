@@ -16,6 +16,12 @@ function leadfield = my_leadfield_eegspheres ( dips, sens, headmodel )
 %
 % This function requires FieldTrip 20160222 or newer to work properly.
 
+% This implementation is adapted from:
+%   Cuffin and Cohen. Comparison of the Magnetoencephalogram and the Electroencephalogram. Electroencephalogr Clin Neurophysiol, 47:131-146.
+% The method of images is adapted from:
+%   Ermer et al 2001. Rapidly recomputable EEG forward models for realistic head shapes. Phys. Med. Biol. 46:1265–1281.
+%   Cheng 1989. Field and Wave Electromagnetics 2nd edn. pp 141–143.
+
 % Based on FieldTrip 20160222 functions:
 % * eeg_leadfield4 by Robert Oostenveld
 
