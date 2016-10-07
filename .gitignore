@@ -11,6 +11,10 @@
 #######################
 ft_*
 
+# OpenMEEG raw functions #
+#######################
+myom_*
+
 # Functions folder #
 ####################
 functions/

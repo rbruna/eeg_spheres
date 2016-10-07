@@ -207,3 +207,14 @@ leadfieldY = my_leadfield ( cfg2 );
 leadfieldY = cat ( 2, leadfieldY.leadfield {:} );
 leadfieldY = leadfieldY';
 toc
+
+leaddata = load('alc02_restingOA_EEG_leadfield.mat');
+leadfieldOM = cat ( 3, leaddata.grid.leadfield {:} );
+leadfieldOM = cat ( 1, zeros ( 1, 3, 2459 ), leadfieldOM );
+
+lfX  = reshape ( leadfieldY', 60, 3, [] );
+lfOM = bsxfun ( @minus, leadfieldOM, mean ( leadfieldOM, 1 ) );
+lfX  = sqrt ( sum ( lfX .^ 2, 2 ) );
+lfOM = sqrt ( sum ( lfOM .^ 2, 2 ) );
+figure
+plot ( [ lfX(:) lfOM(:) ] )
