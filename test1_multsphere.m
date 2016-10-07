@@ -1,75 +1,6 @@
-
-clc
-clear
-close all
-
-% Adds FT to the path.
-ft_path;
-ft_defaults
-
-ft_hastoolbox ( 'freesurfer', 1, 1 );
-ft_hastoolbox ( 'spm8', 1, 1 );
-
-% Adds the functions folder to the path.
-addpath ( sprintf ( '%s/functions', pwd ) );
-
-% Loads the EEG data.
-eegdata = load ( 'alc02_restingOA_EEG' );
-eegdata.trialdata.elec = ft_convert_units ( eegdata.trialdata.elec, 'm' );
-eegdata.trialdata.grad = ft_convert_units ( eegdata.trialdata.grad, 'm' );
-
-% Loads the subject segmentation and the generated meshes.
-mridata = load ( 'alc02_mri.mat' );
-mridata.mesh = ft_convert_units ( mridata.mesh, 'mm' );
-mridata.mesh = ft_transform_geometry ( eegdata.mriinfo.transform, mridata.mesh );
-mridata.mesh = ft_convert_units ( mridata.mesh, 'm' );
-
-sens = eegdata.trialdata.elec;
-mesh = mridata.mesh;
-
-% headmodel = my_headmodel_eegspheres ( mesh, sens, 'singlesphere', 'yes' );
-headmodel = my_headmodel_eegspheres ( mesh, sens );
-
-
-
-
-
-% Only keeps the sensors with a defined position.
-if isfield ( sens, 'coilpos'  )
-    nocoil = any ( isnan ( sens.coilpos ), 2 );
-    if isfield ( sens, 'coilpos'  ), sens.coilpos  ( nocoil, : ) = []; end
-    if isfield ( sens, 'coilori'  ), sens.coilori  ( nocoil, : ) = []; end
-    if isfield ( sens, 'tra'      ), sens.tra      ( :, nocoil ) = []; end
-end
-if isfield ( sens, 'elecpos'  )
-    noelec = any ( isnan ( sens.elecpos ), 2 );
-    if isfield ( sens, 'elecpos'  ), sens.elecpos  ( noelec, : ) = []; end
-    if isfield ( sens, 'tra'      ), sens.tra      ( :, noelec ) = []; end
-end
-if isfield ( sens, 'chanpos'  )
-    nochan = any ( isnan ( sens.chanpos ), 2 );
-    if isfield ( sens, 'chanpos'  ), sens.chanpos  ( nochan, : ) = []; end
-    if isfield ( sens, 'chantype' ), sens.chantype ( nochan, : ) = []; end
-    if isfield ( sens, 'chanunit' ), sens.chanunit ( nochan, : ) = []; end
-    if isfield ( sens, 'label'    ), sens.label    ( nochan, : ) = []; end
-    if isfield ( sens, 'tra'      ), sens.tra      ( nochan, : ) = []; end
-end
-
-% If EEG projects the channels onto the outter mesh.
-if isfield ( sens, 'elecpos'  )
-    for eindex = 1: size ( sens.elecpos, 1 );
-        [ ~, Pm ] = NFT_dmp ( sens.elecpos ( eindex, : ), mesh.bnd ( end ).pnt, mesh.bnd ( end ).tri );
-        sens.elecpos ( eindex, : ) = Pm;
-    end
-    for cindex = 1: size ( sens.chanpos, 1 );
-        [ ~, Pm ] = NFT_dmp ( sens.chanpos ( cindex, : ), mesh.bnd ( end ).pnt, mesh.bnd ( end ).tri );
-        sens.chanpos ( cindex, : ) = Pm;
-    end
-end
-
-
-
 %%
+
+% For eachs ensor, draws the head meshes and the spheres.
 
 % If EEG projects the channels onto the outter mesh.
 if isfield ( sens, 'elecpos'  )
@@ -83,8 +14,7 @@ if isfield ( sens, 'elecpos'  )
     end
 end
 
-for sindex = 11
-% for sindex = 1: size ( sens.label, 1 )
+for sindex = 1: size ( sens.label, 1 )
     
     label  = sens.label { sindex };
     hindex = find ( strcmp ( headmodellc.label, label ) );
@@ -106,8 +36,8 @@ for sindex = 11
     plot3 ( sensor (1), sensor (2), sensor (3), 'r*' )
     
     % Plots the three meshes.
-    ft_plot_mesh ( mridata.mesh.bnd (1), 'edgecolor', 'none', 'facecolor', 'brain', 'facealpha', 0.3 );
-    ft_plot_mesh ( mridata.mesh.bnd (2), 'edgecolor', 'none', 'facecolor', 'white', 'facealpha', 0.3 );
+    ft_plot_mesh ( mridata.mesh.bnd (1), 'edgecolor', 'none', 'facecolor', 'brain', 'facealpha', 0.1 );
+    ft_plot_mesh ( mridata.mesh.bnd (2), 'edgecolor', 'none', 'facecolor', 'white', 'facealpha', 0.1 );
     ft_plot_mesh ( mridata.mesh.bnd (3), 'edgecolor', 'none', 'facecolor', 'skin',  'facealpha', 0.3 );
     
     % Plots the three spheres.
@@ -121,11 +51,154 @@ for sindex = 11
     spheres.r    = headmodellc.r ( sindex, 3 );
     ft_plot_vol ( spheres, 'edgecolor', 'none',  'facecolor', 'skin',  'facealpha', 0.3 )
     
-    plot3 ( mridata.grid.pos ( [ 719 720 ], 1 ), mridata.grid.pos ( [ 719 720 ], 2 ), mridata.grid.pos ( [ 719 720 ], 3 ), '*b' )
+%     plot3 ( mridata.grid.pos ( [ 719 720 ], 1 ), mridata.grid.pos ( [ 719 720 ], 2 ), mridata.grid.pos ( [ 719 720 ], 3 ), '*b' )
     
-    rotate3d
+    views = linspace ( 0, 360, 100 );
+    views = views ( 1: end - 1 );
+    for vindex = 1: numel ( views )
+        view ( views ( vindex ), 0 );
+        pause ( 0.04 );
+    end
+    close
+    
 %     savefig ( sprintf ( '%s.fig', sens.label { sindex } ) );
 %     my_savegif ( sprintf ( '%s.gif', sens.label { sindex } ) );
 %     close
-    uiwait
+    
+%     rotate3d
+%     uiwait
+end
+
+%%
+
+% For each sensor, draws the contribution of each source.
+
+% If EEG projects the channels onto the outter mesh.
+if isfield ( sens, 'elecpos'  )
+    for eindex = 1: 60
+        [ ~, Pm ] = NFT_dmp ( sens.elecpos ( eindex, : ), mridata.mesh.bnd ( end ).pnt, mridata.mesh.bnd ( end ).tri );
+        sens.elecpos ( eindex, : ) = Pm;
+    end
+    for cindex = 1: 60
+        [ ~, Pm ] = NFT_dmp ( sens.chanpos ( cindex, : ), mridata.mesh.bnd ( end ).pnt, mridata.mesh.bnd ( end ).tri );
+        sens.chanpos ( cindex, : ) = Pm;
+    end
+end
+
+for sindex = 1: size ( sens.label, 1 )
+    
+    label  = sens.label { sindex };
+    hindex = find ( strcmp ( headmodellc.label, label ) );
+    
+    if isempty ( hindex )
+        continue
+    end
+    
+    % Creats the figure.
+    figure
+    hold on
+    
+    % Plots all the sensors.
+    sensors = sens.chanpos;
+    plot3 ( sensors ( :, 1 ), sensors ( :, 2 ), sensors ( :, 3 ), 'k.', 'MarkerSize', 1 )
+    
+    % Plots the sensor.
+    sensor = sens.chanpos ( hindex, : );
+    plot3 ( sensor (1), sensor (2), sensor (3), 'r*' )
+    
+    % Plots the three meshes.
+    ft_plot_mesh ( mridata.mesh.bnd (1), 'edgecolor', 'none', 'facecolor', 'brain', 'facealpha', 0.1 );
+    ft_plot_mesh ( mridata.mesh.bnd (2), 'edgecolor', 'none', 'facecolor', 'white', 'facealpha', 0.1 );
+    ft_plot_mesh ( mridata.mesh.bnd (3), 'edgecolor', 'none', 'facecolor', 'skin',  'facealpha', 0.3 );
+    
+    % Gets the leadfield for this sensor.
+    lf = reshape ( leadfieldY ( :, sindex ), 3, [] );
+    lf = sqrt ( sum ( lf .^ 2, 1 ) );
+    lf = lf - min ( lf );
+    lf = lf / max ( lf );
+    
+    color = bsxfun ( @times, [ 0 1 1 ], 1 - lf' );
+    color = bsxfun ( @plus, [ 1 0 0 ], color );
+    scatter3 ( mridata.grid.pos ( :, 1 ), mridata.grid.pos ( :, 2 ), mridata.grid.pos ( :, 3 ), 15, color, 'filled' )
+    
+    
+    views = linspace ( 0, 360, 100 );
+    views = views ( 1: end - 1 );
+    for vindex = 1: numel ( views )
+        view ( views ( vindex ), 0 );
+        pause ( 0.04 );
+    end
+    close
+    
+%     savefig ( sprintf ( '%s.fig', sens.label { sindex } ) );
+%     my_savegif ( sprintf ( '%s.gif', sens.label { sindex } ) );
+%     close
+    
+%     rotate3d
+%     uiwait
+end
+%%
+
+% For each source, draws the effect in each sensor.
+
+% If EEG projects the channels onto the outter mesh.
+if isfield ( sens, 'elecpos'  )
+    for eindex = 1: 60
+        [ ~, Pm ] = NFT_dmp ( sens.elecpos ( eindex, : ), mridata.mesh.bnd ( end ).pnt, mridata.mesh.bnd ( end ).tri );
+        sens.elecpos ( eindex, : ) = Pm;
+    end
+    for cindex = 1: 60
+        [ ~, Pm ] = NFT_dmp ( sens.chanpos ( cindex, : ), mridata.mesh.bnd ( end ).pnt, mridata.mesh.bnd ( end ).tri );
+        sens.chanpos ( cindex, : ) = Pm;
+    end
+end
+
+for dindex = 1: 100: size ( mridata.grid.pos, 1 )
+    
+    label  = sens.label ( 1: 60 );
+    hindex = find ( strcmp ( headmodellc.label, label ) );
+    
+    % Creats the figure.
+    figure
+    hold on
+    
+    % Plots the three meshes.
+    ft_plot_mesh ( mridata.mesh.bnd (1), 'edgecolor', 'none', 'facecolor', 'brain', 'facealpha', 0.5 );
+    ft_plot_mesh ( mridata.mesh.bnd (2), 'edgecolor', 'none', 'facecolor', 'white', 'facealpha', 0.3 );
+    ft_plot_mesh ( mridata.mesh.bnd (3), 'edgecolor', 'none', 'facecolor', 'skin',  'facealpha', 0.3 );
+    
+    % Plots all the soruces.
+    plot3 ( mridata.grid.pos ( :, 1 ), mridata.grid.pos ( :, 2 ), mridata.grid.pos ( :, 3 ), '.k', 'MarkerSize', 1 )
+    
+    % Plots the current source.
+    plot3 ( mridata.grid.pos ( dindex, 1 ), mridata.grid.pos ( dindex, 2 ), mridata.grid.pos ( dindex, 3 ), 'b*' )
+    
+    
+    % Gets the leadfield for this source.
+    lf = reshape ( leadfieldY', 60, 3, [] );
+    lf = sqrt ( sum ( lf ( :, :, dindex ) .^ 2, 2 ) );
+    lf = lf - min ( lf );
+    lf = lf / max ( lf );
+    
+    % Plots all the sensors.
+    color = bsxfun ( @times, [ 0 1 1 ], 1 - lf );
+    color = bsxfun ( @plus, [ 1 0 0 ], color );
+    scatter3 ( sens.chanpos ( hindex, 1 ), sens.chanpos ( hindex, 2 ), sens.chanpos ( hindex, 3 ), 15, color, 'filled' )
+    
+    
+    views = linspace ( 0, 360, 100 );
+    views = views ( 1: end - 1 );
+    for vindex = 1: numel ( views )
+        view ( views ( vindex ), 0 );
+        pause ( 0.04 );
+    end
+    close
+    
+    
+%     savefig ( sprintf ( '%s.fig', sens.label { sindex } ) );
+%     my_savegif ( sprintf ( '%s.gif', sens.label { sindex } ) );
+%     close
+    
+%     rotate3d
+%     uiwait
 end
