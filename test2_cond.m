@@ -180,6 +180,7 @@ mridata.grid = ft_convert_units ( mridata.grid, 'm' );
 % headmodel = ft_headmodel_concentricspheres ( mridata.mesh );
 headmodel = my_headmodel_eegspheres ( mridata.mesh, eegdata.trialdata.elec, 'singlesphere', 'yes' );
 headmodellc = my_headmodel_eegspheres ( mridata.mesh, eegdata.trialdata.elec );
+headmodellc2 = my_headmodel_eegspheresB ( mridata.mesh, eegdata.trialdata.elec );
 % idx = 1: 4;
 % headmodellc.o ( idx, : ) = headmodel.o ( ones ( size ( idx ) ), : );
 % headmodellc.r ( idx, : ) = headmodel.r ( ones ( size ( idx ) ), : );
@@ -208,13 +209,30 @@ leadfieldY = cat ( 2, leadfieldY.leadfield {:} );
 leadfieldY = leadfieldY';
 toc
 
+cfg3 = cfg;
+cfg3.headmodel = headmodellc2;
+
+tic
+leadfieldZ = my_leadfield ( cfg3 );
+leadfieldZ = cat ( 2, leadfieldZ.leadfield {:} );
+leadfieldZ = leadfieldZ';
+toc
+
 leaddata = load('alc02_restingOA_EEG_leadfield.mat');
 leadfieldOM = cat ( 3, leaddata.grid.leadfield {:} );
 leadfieldOM = cat ( 1, zeros ( 1, 3, 2459 ), leadfieldOM );
 
-lfX  = reshape ( leadfieldY', 60, 3, [] );
+lfX  = reshape ( leadfieldX', 60, 3, [] );
+lfY  = reshape ( leadfieldY', 60, 3, [] );
+lfZ  = reshape ( leadfieldZ', 60, 3, [] );
 lfOM = bsxfun ( @minus, leadfieldOM, mean ( leadfieldOM, 1 ) );
 lfX  = sqrt ( sum ( lfX .^ 2, 2 ) );
+lfY  = sqrt ( sum ( lfY .^ 2, 2 ) );
+lfZ  = sqrt ( sum ( lfZ .^ 2, 2 ) );
 lfOM = sqrt ( sum ( lfOM .^ 2, 2 ) );
 figure
-plot ( [ lfX(:) lfOM(:) ] )
+plot ( [ lfZ(:) lfOM(:) ] )
+legend ( { 'Multiple spheres' 'OM' } )
+figure
+plot ( [ lfX(:) lfZ(:) lfOM(:) ] )
+legend ( { 'Sphere' 'Multiple spheres' 'OM' } )

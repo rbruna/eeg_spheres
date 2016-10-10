@@ -203,6 +203,9 @@ for chan = 1: nchans
     % Fits a sphere to those points.
     if size ( sphereps, 1 ) > 10
         [ o, r ] = my_fitsphere ( sphereps );
+        
+        % Forces the radius to be the same to all the spheres.
+        
     else
         fprintf ( 'Not enough surface points for channel %s. Using all points.\n', sens.label { chan } );
         o = center;
@@ -222,7 +225,7 @@ for chan = 1: nchans
         r ( numel ( mesh ) ) = 0;
         
         % Goes through each mesh.
-        for mindex = 1: numel ( mesh )
+        for mindex = 2: numel ( mesh )
             
             % Find the first mesh's points closer to the sensor.
             distance = sqrt ( sum ( bsxfun ( @minus, mesh ( mindex ).pos, chanpos ) .^ 2, 2 ) );

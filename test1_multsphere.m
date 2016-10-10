@@ -41,32 +41,32 @@ for sindex = 1: size ( sens.label, 1 )
     ft_plot_mesh ( mridata.mesh.bnd (3), 'edgecolor', 'none', 'facecolor', 'skin',  'facealpha', 0.3 );
     
     % Plots the three spheres.
-    spheres      = headmodellc;
-    spheres.o    = headmodellc.o ( hindex, : );
+    spheres      = headmodellc2;
+    spheres.o    = headmodellc2.o ( hindex, : );
     spheres.type = 'concentricspheres';
-    spheres.r    = headmodellc.r ( hindex, 1 );
+    spheres.r    = headmodellc2.r ( hindex, 1 );
     ft_plot_vol ( spheres, 'edgecolor', 'none', 'facecolor', 'brain', 'facealpha', 0.8 )
-    spheres.r    = headmodellc.r ( hindex, 2 );
+    spheres.r    = headmodellc2.r ( hindex, 2 );
     ft_plot_vol ( spheres, 'edgecolor', 'none',  'facecolor', 'white', 'facealpha', 0.6 )
-    spheres.r    = headmodellc.r ( sindex, 3 );
+    spheres.r    = headmodellc2.r ( sindex, 3 );
     ft_plot_vol ( spheres, 'edgecolor', 'none',  'facecolor', 'skin',  'facealpha', 0.3 )
     
 %     plot3 ( mridata.grid.pos ( [ 719 720 ], 1 ), mridata.grid.pos ( [ 719 720 ], 2 ), mridata.grid.pos ( [ 719 720 ], 3 ), '*b' )
     
-    views = linspace ( 0, 360, 100 );
-    views = views ( 1: end - 1 );
-    for vindex = 1: numel ( views )
-        view ( views ( vindex ), 0 );
-        pause ( 0.04 );
-    end
-    close
+%     views = linspace ( 0, 360, 100 );
+%     views = views ( 1: end - 1 );
+%     for vindex = 1: numel ( views )
+%         view ( views ( vindex ), 0 );
+%         pause ( 0.04 );
+%     end
+%     close
     
 %     savefig ( sprintf ( '%s.fig', sens.label { sindex } ) );
 %     my_savegif ( sprintf ( '%s.gif', sens.label { sindex } ) );
 %     close
     
-%     rotate3d
-%     uiwait
+    rotate3d
+    uiwait
 end
 
 %%
