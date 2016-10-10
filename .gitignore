@@ -4,6 +4,7 @@
 *.mat
 *.fig
 *.gif
+*.png
 *.mex*
 .gitignore
 
