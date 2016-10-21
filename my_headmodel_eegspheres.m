@@ -203,9 +203,6 @@ for chan = 1: nchans
     % Fits a sphere to those points.
     if size ( sphereps, 1 ) > 10
         [ o, r ] = my_fitsphere ( sphereps );
-        
-        % Forces the radius to be the same to all the spheres.
-        
     else
         fprintf ( 'Not enough surface points for channel %s. Using all points.\n', sens.label { chan } );
         o = center;
