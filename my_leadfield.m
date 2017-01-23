@@ -93,28 +93,28 @@ iseeg = isfield ( sens, 'elecpos' );
 
 
 % Gets the channels present in the sensor definition.
-channels = sens.label;
+label = sens.label;
 
 % If a channel restriction has been provided uses it.
 if isfield ( cfg, 'channel' )
-    channels = ft_channelselection ( cfg.channel, channels );
+    label = ft_channelselection ( cfg.channel, label );
 end
 
 % If data, restricts the channels to that.
 if data
-    channels = ft_channelselection ( data.label, channels );
+    label = ft_channelselection ( data.label, label );
 end
 
 % If the head model is channel-dependent get only those channels.
 if isfield ( headmodel, 'label' )
-    channels = ft_channelselection ( headmodel.label, channels );
+    label = ft_channelselection ( headmodel.label, label );
 end
 
 % Removes the unused channels and sensors from the sensor definition.
-sens = fixsens ( sens, channels );
+sens = fixsens ( sens, label );
 
 
-% If channel units checks if the unit transformation is possible.
+% If channel units, checks if the unit transformation is possible.
 if isfield ( cfg, 'chanunit' )
     
     % If no channel units the transformation is not possible.
@@ -132,7 +132,7 @@ if isfield ( cfg, 'chanunit' )
     end
 end
 
-% If channel or sources units transforms everything to SI units (m).
+% If channel or sources units, transforms everything to SI units (m).
 if any ( isfield ( cfg, { 'chanunit' 'dipoleunit' } ) )
     
     % Makes sure that both the grid and the sensor definition have units.
@@ -168,8 +168,8 @@ end
 
 
 % Gets the number of channels and sources.
-nchannels = numel ( channels );
-nsources  = sum   ( grid.inside, 1 );
+nsens    = numel ( label );
+nsources = sum   ( grid.inside, 1 );
 
 % Selects the right function for each head model.
 switch headmodel.type
@@ -178,10 +178,10 @@ switch headmodel.type
     case 'localconcentricspheres'
         
         % Reserves memory for the leadfield matrix in 3D form.
-        leadfield = zeros ( nchannels, 3, nsources );
+        leadfield = zeros ( nsens, 3, nsources );
         
         % Iterates along channels.
-        for cindex = 1: nchannels
+        for cindex = 1: nsens
             
             % Gets the sensor label.
             senslabel      = sens.label { cindex };
@@ -204,9 +204,6 @@ switch headmodel.type
         % Calculates the leadfield.
         leadfield = my_leadfield_eegspheres ( grid.pos ( grid.inside, : ), sens.elecpos, headmodel );
         
-        % Rewrites the leadfield as a 3D matrix.
-        leadfield = reshape ( leadfield, nchannels, 3, nsources );
-        
     % Otherwise relies on FieldTrip.
     otherwise
         
@@ -214,6 +211,9 @@ switch headmodel.type
         grid      = ft_prepare_leadfield ( cfg, data );
         return
 end
+
+% Rewrites the leadfield as a 3D matrix.
+leadfield = reshape ( leadfield, nsens, [], nsources );
 
 
 % If 'tra' field compose the channel leadfield from the sensors.
@@ -229,7 +229,7 @@ end
 
 % Determines if apply rank reduction or not.
 if ~isfield ( cfg, 'reducerank' ) && ismeg
-        cfg.reducerank = 2;
+    cfg.reducerank = 2;
 end
 
 % Applies the rank reduction.
@@ -293,13 +293,17 @@ if isfield ( grid, 'mom' )
 end
 
 
-% Generates the leadfield cell.
-grid.leadfield = cell ( 1, size ( grid.pos, 1 ) );
+% Rewrites the leadfield in FieldTrip form.
+leadfield = num2cell ( leadfield, [ 1 2 ] );
 
 % Stores the leadfield in the grid.
-grid.leadfield ( grid.inside ) = num2cell ( leadfield, [ 1 2 ] );
-grid.label     = channels;
+grid.leadfield = cell ( 1, size ( grid.pos, 1 ) );
+grid.leadfield ( grid.inside ) = leadfield;
+
+% Adds the channel labels and the dimension descriptions.
+grid.label     = label;
 grid.leadfielddimord = '{pos}_chan_ori';
+
 
 
 % % mollify the leadfields
@@ -327,7 +331,7 @@ grid.leadfielddimord = '{pos}_chan_ori';
 function grid = fixgrid ( grid )
 
 % Fix the absent or numerical 'inside' field.
-if ~isfield ( grid, 'inside' ) || islogical ( grid.inside )
+if ~isfield ( grid, 'inside' ) || ~islogical ( grid.inside )
     
     % Initializes the 'inside' field to a logical array.
     inside = false ( size ( grid.pos ( :, 1 ) ) );
@@ -372,7 +376,7 @@ if ~all ( ismember ( sens.label, channels ) )
         % Gets the list of useless sensors.
         remidx = ~any ( sens.tra, 1 );
         
-        % Removes the sensors from thwe 'tra' field.
+        % Removes the sensors from the 'tra' field.
         sens.tra ( :, remidx ) = [];
         
         % Removes the sensors from each sensor field.

@@ -127,17 +127,22 @@ end
 
 % Gets the electrode's position in spherical coordinates.
 [ phi, the ] = cart2sph ( elc ( :, 1 ), elc ( :, 2 ), elc ( :, 3 ) );
-cos_the = cos ( pi / 2 - the );
+cos_the = double ( cos ( pi / 2 - the ) );
 
-P0 = zeros ( nchans, nterms + 1 );
-P1 = zeros ( nchans, nterms );
-for cindex = 1: nchans
-    P0 ( cindex, : ) = my_plgndr ( nterms, 0, cos_the ( cindex ), 1 ); % Zero'th order Legendre.
-    P1 ( cindex, : ) = my_plgndr ( nterms, 1, cos_the ( cindex ), 1 ) ./ ( 1: nterms ); % First order Legendre.
-end
+% Calculates the 0th and 1st order Legendre polynomials.
+P0 = my_plgndr ( nterms, 0, cos_the );
+P1 = my_plgndr ( nterms, 1, cos_the );
+
+% Discards PX_0.
+P0 ( :, 1 ) = [];
+P1 ( :, 1 ) = [];
+
+% Corrects P1.
+% Cuffin & Cohen 1979. Eq A2. Part 2.
+P1 = bsxfun ( @rdivide, P1, 1: nterms );
 
 s_x = bsxfun ( @times, const, P1 ); % s_y is identical.
-s_z = bsxfun ( @times, const, P0 ( :, 2: end ) );
+s_z = bsxfun ( @times, const, P0 );
 
 lf          = zeros ( nchans, 3 );
 lf ( :, 1 ) = sum ( s_x, 2 ) .* -cos ( phi );

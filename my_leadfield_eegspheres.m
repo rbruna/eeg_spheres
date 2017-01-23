@@ -121,21 +121,15 @@ for dindex = 1: ndips
     
     % Gets the electrode's position in spherical coordinates.
     [ phi, theta ] = cart2sph ( dipsens ( :, 1 ), dipsens ( :, 2 ), dipsens ( :, 3 ) );
-    cos_theta   = cos ( pi / 2 - theta );
+    cos_theta   = double ( cos ( pi / 2 - theta ) );
     
-    P0          = zeros ( nsens, nterms + 1 );
-    P1          = zeros ( nsens, nterms );
-    for cindex = 1: nsens
-        
-        % Zeroth order Legendre polynomial.
-        P0 ( cindex, : ) = my_plgndr ( nterms, 0, cos_theta ( cindex ), 1 );
-        
-        % First order Legendre polynomial.
-        P1 ( cindex, : ) = my_plgndr ( nterms, 1, cos_theta ( cindex ), 1 );
-    end
+    % Calculates the 0th and 1st order Legendre polynomials.
+    P0 = my_plgndr ( nterms, 0, cos_theta );
+    P1 = my_plgndr ( nterms, 1, cos_theta );
     
-    % Discards P0_0.
+    % Discards PX_0.
     P0 ( :, 1 ) = [];
+    P1 ( :, 1 ) = [];
     
     % Corrects P1.
     % Cuffin & Cohen 1979. Eq A2. Part 2.

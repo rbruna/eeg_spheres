@@ -34,103 +34,74 @@
 #include "mex.h"
 #include "matrix.h"
 
-double legendre_Pmm ( double m, double x )
-{
-    if ( m == 0 ) {
+/* Solution for the Legendre polynomial at l=m. */
+double legendre_Pmm ( double m, double x ) {
+    
+    if ( m == 0 )
         return 1.0;
-    } else {
-        double p_mm = 1.0;
-        double root_factor = sqrt ( 1.0 - x ) * sqrt ( 1.0 + x );
-        double fact_coeff = 1.0;
-        int i;
-        for ( i = 1; i <= m; i ++ ) {
-            p_mm *= -fact_coeff * root_factor;
-            fact_coeff += 2.0;
-        }
-        return p_mm;
+    
+    double p_mm = 1.0;
+    double root_factor = sqrt ( 1.0 - x * x );
+    double fact_coeff = 1.0;
+    int i;
+    for ( i = 1; i <= m; i ++ ) {
+        p_mm *= -fact_coeff * root_factor;
+        fact_coeff += 2.0;
     }
+    
+    return p_mm;
 }
 
-double *plgndr ( int l, int m, double x ) {
-    
-    /* Checks the inputs. */
-    if ( m < 0 ) mexErrMsgTxt ( "m must be a positive integer." );
-    if ( m > l ) mexErrMsgTxt ( "l must be a positive integer equal or greater than m." );
-    if ( fabs ( x ) > 1.0 ) mexErrMsgTxt ( "abs(x) cannot be greater than 1." );
-    
-    /* Calculates the number of iterations needed. */
-    int its = l - m + 1;
-    
-    /* Creates an array to store the output. */
-    double *p = malloc ( its * sizeof ( double ) );
-    
-    int ell;
+/* Iterative solution for the Legendre polynomial. */
+void plgndr ( int l, int m, double *x, int nx, double *p ) {
     int index;
+    int iter;
     
-    /* The Legendre function is constructed iteratively. */
-    for ( index = 0; index < its; index ++ ) {
-        ell = index + m;
-        
-        /* For 1 uses the analitical construction. */
-        if ( index == 0 ) {
-            p [ index ] = legendre_Pmm ( m, x );
-            
-        /* For 2 uses a simplified version of the iterative construction. */
-        } else if ( index == 1 ) {
-            p [ index ] = x * ( 2 * ell - 1 ) * p [ index - 1 ];
-            
-        /* For values greater than 2 uses the iterative construction. */
-        } else {
-            p [ index ] = ( x * ( 2 * ell - 1 ) * p [ index - 1 ] - ( ell + m - 1 ) * p [ index - 2 ] ) / ( ell - m );
-        }
-    }
+    /* Uses the analytical formula to construct the first iteration. */
+    for ( index = 0; index < nx; index ++ )
+        p [ index + m * nx ] = legendre_Pmm ( m, x [ index ] );
     
-    /* Returns the whole array. */
-    return p;
+    if ( l == m )
+        return;
+    
+    /* Uses a simplified version of the Legendre formula for the second iteration. */
+    for ( index = 0; index < nx; index ++ )
+        p [ index + ( m + 1 ) * nx ] = x [ index ] * ( 2 * ( m + 1 ) - 1 ) * p [ index + m * nx ];
+    
+    /* For values greater than 2 uses the iterative construction. */
+    for ( iter = 2; iter <= l - m; iter ++ )
+        for ( index = 0; index < nx; index ++ )
+            p [ index + ( m + iter ) * nx ] = ( x [ index ] * ( 2 * ( m + iter ) - 1 ) * p [ index + ( m + iter - 1 ) * nx ] - ( iter + 2 * m - 1 ) * p [ index + ( m + iter - 2 ) * nx ] ) / iter;
 }
 
 void mexFunction ( int nlhs, mxArray * plhs [], int nrhs, const mxArray * prhs [] ) {
     int l, m;
-    double x;
+    double *x;
     double *pd;
     
+    int n, index;
+    
     /* Checks the inputs. */
-    if ( nrhs < 3 || nrhs > 4 ) mexErrMsgTxt ( "Invalid number of arguments for PLGNDR." );
+    if ( nrhs != 3 ) mexErrMsgTxt ( "Invalid number of arguments for PLGNDR." );
+    if ( !mxIsDouble ( prhs [2] ) ) mexErrMsgTxt ( "This function requires double data as input." );
     
     /* Gets the input variables */
     l = mxGetScalar ( prhs [0] );
     m = mxGetScalar ( prhs [1] );
-    x = mxGetScalar ( prhs [2] );
+    x = mxGetData   ( prhs [2] );
+    n = mxGetNumberOfElements ( prhs [2] );
     
-    /* Calculates the number of iterations needed. */
-    int its = l - m + 1;
-
-    double *output;
-    output = plgndr ( l, m, x );
+    /* Checks the inputs. */
+    if ( m < 0 ) mexErrMsgTxt ( "m must be a positive integer." );
+    if ( m > l ) mexErrMsgTxt ( "l must be a positive integer equal or greater than m." );
+    for ( index = 0; index < n; index ++ )
+        if ( fabs ( x [ index ] ) > 1.0 ) mexErrMsgTxt ( "abs(x) cannot be greater than 1." );
     
-    /* If no fourth input returns only the last value. */
-    if ( nrhs == 3 ) {
-        
-        /* Creates the matrix array and gets a pointer to it. */
-        plhs [0] = mxCreateDoubleMatrix ( 1, 1, mxREAL );
-        pd = mxGetData ( plhs [0] );
-        
-        /* Copies the result to the matrix array. */
-        pd [0] = output [ its - 1 ];
-        
-    /* Otherwise returns the full array. */
-    } else {
-        
-        /* Creates the matrix array and gets a pointer to it. */
-        plhs [0] = mxCreateDoubleMatrix ( 1, its, mxREAL );
-        pd = mxGetData ( plhs [0] );
-        
-        /* Copies the result to the matrix array. */
-        memcpy ( pd, output, its * sizeof ( double ) );
-    }
     
-    /* Frees the memory used by the original array. */
-    free ( output );
+    /* Reserves memory for the output array. */
+    plhs [0] = mxCreateDoubleMatrix ( n, l + 1, mxREAL );
+    pd = mxGetData ( plhs [0] );
     
-    return;
+    /* Calculates the Legendre polynomial. */
+    plgndr ( l, m, x, n, pd );
 }
