@@ -1,4 +1,49 @@
 %%
+clc
+clear
+close all
+
+% Adds the functions folder to the path.
+addpath ( sprintf ( '%s/functions', fileparts ( pwd ) ) );
+
+% Adds the functions folder to the path (in development).
+addpath ( sprintf ( '%s/functions', pwd ) );
+
+% Adds FT to the path.
+ft_path;
+ft_defaults
+
+ft_hastoolbox ( 'freesurfer', 1, 1 );
+ft_hastoolbox ( 'spm8', 1, 1 );
+
+clear
+
+% Loads the EEG data.
+eegdata = load ( '../../data/alc02_restingOA_EEG' );
+eegdata.trialdata.elec = ft_convert_units ( eegdata.trialdata.elec, 'm' );
+eegdata.trialdata.grad = ft_convert_units ( eegdata.trialdata.grad, 'm' );
+eegdata.trialdata.elec.elecpos ( isnan ( eegdata.trialdata.elec.elecpos ) ) = 0;
+
+% Loads the subject segmentation and the generated meshes.
+mridata = load ( '../../data/alc02_mri.mat' );
+mridata.mesh = ft_convert_units ( mridata.mesh, 'mm' );
+mridata.mesh = ft_transform_geometry ( eegdata.mriinfo.transform, mridata.mesh );
+mridata.mesh = ft_convert_units ( mridata.mesh, 'm' );
+mridata.grid = ft_convert_units ( mridata.grid, 'mm' );
+mridata.grid = ft_transform_geometry ( eegdata.mriinfo.transform, mridata.grid );
+mridata.grid = ft_convert_units ( mridata.grid, 'm' );
+
+% Fits the three concentric spheres to the meshes.
+headmodel    = ft_headmodel_concentricspheres ( mridata.mesh );
+headmodelsc  = mymcs_headmodel ( mridata.mesh, eegdata.trialdata.elec, 'singlesphere', 'yes' );
+headmodellc  = mymcs_headmodel ( mridata.mesh, eegdata.trialdata.elec );
+headmodellc2 = mymcs_headmodel ( mridata.mesh, eegdata.trialdata.elec, 'eqradii', false );
+
+% Selects only the 60 first EEG channels.
+sens   = eegdata.trialdata.elec;
+
+
+%%
 
 % For eachs ensor, draws the head meshes and the spheres.
 
@@ -41,14 +86,14 @@ for sindex = 1: size ( sens.label, 1 )
     ft_plot_mesh ( mridata.mesh.bnd (3), 'edgecolor', 'none', 'facecolor', 'skin',  'facealpha', 0.3 );
     
     % Plots the three spheres.
-    spheres      = headmodellc2;
-    spheres.o    = headmodellc2.o ( hindex, : );
+    spheres      = headmodellc;
+    spheres.o    = headmodellc.o ( hindex, : );
     spheres.type = 'concentricspheres';
-    spheres.r    = headmodellc2.r ( hindex, 1 );
+    spheres.r    = headmodellc.r ( hindex, 1 );
     ft_plot_vol ( spheres, 'edgecolor', 'none', 'facecolor', 'brain', 'facealpha', 0.8 )
-    spheres.r    = headmodellc2.r ( hindex, 2 );
+    spheres.r    = headmodellc.r ( hindex, 2 );
     ft_plot_vol ( spheres, 'edgecolor', 'none',  'facecolor', 'white', 'facealpha', 0.6 )
-    spheres.r    = headmodellc2.r ( sindex, 3 );
+    spheres.r    = headmodellc.r ( sindex, 3 );
     ft_plot_vol ( spheres, 'edgecolor', 'none',  'facecolor', 'skin',  'facealpha', 0.3 )
     
 %     plot3 ( mridata.grid.pos ( [ 719 720 ], 1 ), mridata.grid.pos ( [ 719 720 ], 2 ), mridata.grid.pos ( [ 719 720 ], 3 ), '*b' )
@@ -84,6 +129,39 @@ if isfield ( sens, 'elecpos'  )
         sens.chanpos ( cindex, : ) = Pm;
     end
 end
+
+cfg = [];
+cfg.grid = mridata.grid;
+cfg.senstype = 'eeg';
+cfg.headmodel = headmodel;
+cfg.channel = { 'all' '-EEG061' '-EEG062' '-EEG063' '-EEG064' };
+cfg.elec = eegdata.trialdata.elec;
+cfg.sens = eegdata.trialdata.elec;
+cfg.feedback = 'no';
+
+tic
+leadfieldX = my_leadfield ( cfg );
+leadfieldX = cat ( 2, leadfieldX.leadfield {:} );
+leadfieldX = leadfieldX';
+toc
+
+cfg2 = cfg;
+cfg2.headmodel = headmodellc;
+
+tic
+leadfieldY = my_leadfield ( cfg2 );
+leadfieldY = cat ( 2, leadfieldY.leadfield {:} );
+leadfieldY = leadfieldY';
+toc
+
+cfg3 = cfg;
+cfg3.headmodel = headmodellc2;
+
+tic
+leadfieldZ = my_leadfield ( cfg3 );
+leadfieldZ = cat ( 2, leadfieldZ.leadfield {:} );
+leadfieldZ = leadfieldZ';
+toc
 
 for sindex = 1: size ( sens.label, 1 )
     
